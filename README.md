@@ -9,6 +9,9 @@ Notion DB ──(fetch_notion.py, Notion API)──▶ build/site_data.json + si
           ──(render.py, template.html)─────▶ site/index.html   ──▶ GitHub Pages (hyunwoojkim.com)
 ```
 
+**저장소**: `github.com/mlvlab/mlvlab.github.io` (연구실 조직 계정) → 사이트 `https://mlvlab.github.io/`
+(2026-09까지는 `naajeehxe/mlv-homepage` → `naajeehxe.github.io/mlv-homepage`에서 운영하다가 옮김.)
+
 ## 폴더 구성
 
 | 파일 | 역할 |
@@ -29,7 +32,8 @@ Notion DB ──(fetch_notion.py, Notion API)──▶ build/site_data.json + si
    Notion에서 "MLV Lab homepage DB" 페이지 우측 상단 `…` → *Connections* → 방금 만든 통합 추가.
    (상위 페이지에 연결하면 아래 10개 DB에 모두 적용됩니다.)
 3. **GitHub 저장소 만들기**
-   이 폴더 전체를 새 저장소(예: `mlvlab/homepage`)에 push. Settings → Secrets and variables → Actions →
+   이 폴더 전체를 새 저장소(`mlvlab/mlvlab.github.io` — 조직 이름과 같은 이름이면 루트 주소 `https://mlvlab.github.io/`가 됨)에 push.
+   Settings → Secrets and variables → Actions →
    *New repository secret*: 이름 `NOTION_TOKEN`, 값은 1번의 시크릿.
 4. **GitHub Pages 켜기**
    Settings → Pages → Source: **GitHub Actions**. Actions 탭에서 *Build site from Notion and deploy* →
