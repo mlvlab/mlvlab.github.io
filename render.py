@@ -36,6 +36,18 @@ def main():
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / 'index.html').write_text(full, encoding='utf-8')
+    # Keep the old Google Sites /home URL working, including on custom domains.
+    home = OUT / 'home'
+    home.mkdir(exist_ok=True)
+    (home / 'index.html').write_text(
+        '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<title>MLV Lab — Redirecting</title>\n'
+        '<script>window.location.replace("/#/home");</script>\n'
+        '<meta http-equiv="refresh" content="0; url=/#/home">\n'
+        '</head>\n<body>\n'
+        '<p><a href="/#/home">Continue to the MLV Lab homepage</a></p>\n'
+        '</body>\n</html>\n', encoding='utf-8')
     (OUT / '.nojekyll').write_text('')
     cname = HERE / 'CNAME'
     if cname.exists(): shutil.copyfile(cname, OUT / 'CNAME')
