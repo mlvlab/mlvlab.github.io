@@ -12,15 +12,15 @@ Usage:
   python fetch_notion.py                  # full fetch
   python fetch_notion.py --no-images      # skip image downloads (fast, text only)
 
-Image priority for every row: "… File" (uploaded to Notion)  >  "… URL"  >  snapshot/ copy
-shipped with this repo (the 2026-09 Google Sites snapshot), so the site keeps working
-even when a Google-hosted URL has expired.
+Image priority for every row: "… File" (uploaded to Notion) > "… URL" > snapshot/ copy.
+The checked-in image backup keeps the site independent of expired source URLs.
+An unavailable image with a configured source or backup stops a full build.
 """
 import os, sys, json, re, io, hashlib, time, argparse, urllib.request, urllib.error
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CFG = json.load(open(HERE / 'config.json'))
+CFG = json.loads((HERE / 'config.json').read_text(encoding='utf-8'))
 TOKEN = os.environ.get('NOTION_TOKEN', '')
 API = 'https://api.notion.com/v1'
 HEADERS = {'Authorization': f'Bearer {TOKEN}', 'Notion-Version': CFG['notion_version'], 'Content-Type': 'application/json'}
@@ -141,44 +141,92 @@ def visible(rows):
     return [r for r in rows if prop(r['properties'], 'Show on Site', default=True) is not False]
 
 # ----------------------------------------------------------------------------- images
-SNAP = json.load(open(HERE / 'snapshot' / 'manifest.json'))
-SNAP_BY_LABEL = {}
-SNAP_LABEL_QUEUE = {}   # (kind, label) → [keys in snapshot order]; several photos can share one caption
+SNAP = json.loads((HERE / 'snapshot' / 'manifest.json').read_text(encoding='utf-8'))
+SNAP_LAYERS = (SNAP, SNAP.get('archive', {}))
+SNAP_FILES = {}
+SNAP_IDENTITIES = {}
+for layer in SNAP_LAYERS:
+    for key, path in layer.get('files', {}).items():
+        SNAP_FILES.setdefault(key, path)
+    for key, identity in layer.get('identities', {}).items():
+        SNAP_IDENTITIES.setdefault(key, identity)
+DYNAMIC_IMAGES = {'person', 'photo', 'fig', 'slide', 'pubthumb'}
+SNAP_LABEL_QUEUE = {}
+SNAP_MATCHES = {}
+SNAP_USED = set()
+IMAGE_METADATA = {'identities': {}, 'labels': {}, 'aliases': {}}
 def _lab(s):
     """Caption/name → comparison key: markdown links stripped, all whitespace (incl. nbsp/newlines) collapsed, lower-case."""
     s = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', str(s or ''))
     return re.sub(r'\s+', ' ', s.replace('\xa0', ' ')).strip().lower()
-_snap_key_no = lambda k: int(k.split(':')[1]) if ':' in k and k.split(':')[1].isdigit() else 0
-for k in sorted(SNAP['labels'], key=lambda k: (k.split(':')[0], _snap_key_no(k))):
-    lab = _lab(SNAP['labels'][k])
-    SNAP_BY_LABEL.setdefault((k.split(':')[0], lab), k)
-    SNAP_LABEL_QUEUE.setdefault((k.split(':')[0], lab), []).append(k)
+for layer in SNAP_LAYERS:
+    # All active aliases and labels precede archived matches for the same label.
+    for category, aliases in layer.get('aliases', {}).items():
+        for label, keys in aliases.items():
+            queue = SNAP_LABEL_QUEUE.setdefault((category, _lab(label)), [])
+            queue.extend(key for key in keys if key not in queue)
+    for key, label in layer.get('labels', {}).items():
+        queue = SNAP_LABEL_QUEUE.setdefault((key.split(':')[0], _lab(label)), [])
+        if key not in queue:
+            queue.append(key)
 
-def snapshot_file(key=None, kind=None, label=None):
-    # People are matched by NAME first: the positional key (person:<n>) shifts whenever a row is inserted
-    # or re-ordered in Notion, which would hand everyone below the insertion point the wrong photo.
-    if kind == 'person':
-        k = SNAP_BY_LABEL.get((kind, _lab(label)))
-        return HERE / 'snapshot' / SNAP['files'][k] if k else None
-    # Photos are matched by CAPTION for the same reason (the n-th row with a caption ↔ the n-th snapshot
-    # image with that caption); a caption unknown to the snapshot gets nothing rather than someone else's photo.
-    if kind == 'photo':
-        lab = _lab(label)
-        q = SNAP_LABEL_QUEUE.get((kind, lab))
-        if not q and len(lab) >= 12:   # caption edited slightly (e.g. a place appended): accept a unique prefix match
-            cands = [v for (kk, l), v in SNAP_LABEL_QUEUE.items() if kk == kind and v and len(l) >= 12 and (lab.startswith(l) or l.startswith(lab))]
-            q = cands[0] if len(cands) == 1 else None
-        return HERE / 'snapshot' / SNAP['files'][q.pop(0)] if q else None
-    if key and key in SNAP['files']: return HERE / 'snapshot' / SNAP['files'][key]
-    if kind and label:
-        k = SNAP_BY_LABEL.get((kind, _lab(label)))
-        if k: return HERE / 'snapshot' / SNAP['files'][k]
-    return None
+def snapshot_file(key=None, kind=None, label=None, source_id=None):
+    """Match a row's identity or semantic label; never reuse its old position."""
+    category = key.split(':')[0] if key else kind
+    if category not in DYNAMIC_IMAGES:
+        candidate = key if key in SNAP.get('files', {}) else SNAP.get('archive', {}).get('stable_keys', {}).get(key)
+        return HERE / 'snapshot' / SNAP_FILES[candidate] if candidate in SNAP_FILES else None
+    row = (category, source_id or key)
+    if row in SNAP_MATCHES:
+        return SNAP_MATCHES[row]
+    identities = SNAP_IDENTITIES
+    def eligible(candidate):
+        # A publication may reuse a figure. Its identity belongs to the figure,
+        # so only identities in the same row category can conflict.
+        same_category = candidate.split(':')[0] == category
+        shared_figure = category == 'pubthumb' and candidate.startswith('fig:')
+        return (candidate in SNAP_FILES
+                and (shared_figure or (category, candidate) not in SNAP_USED)
+                and not (source_id and same_category and identities.get(candidate)
+                         and identities[candidate] != source_id))
+    matches = [k for k, identity in identities.items()
+               if source_id and identity == source_id and k.split(':')[0] == category and eligible(k)]
+    lab = _lab(label)
+    if not matches and lab:
+        matches = [k for k in SNAP_LABEL_QUEUE.get((category, lab), []) if eligible(k)]
+    if not matches and category == 'photo' and len(lab) >= 12:
+        # Preserve the legacy caption-prefix fallback only when unambiguous.
+        queues = [[k for k in keys if eligible(k)]
+                  for (cat, old_label), keys in SNAP_LABEL_QUEUE.items()
+                  if cat == category and len(old_label) >= 12
+                  and (lab.startswith(old_label) or old_label.startswith(lab))]
+        queues = [q for q in queues if q]
+        if len(queues) == 1:
+            matches = queues[0]
+    chosen = matches[0] if matches else None
+    result = HERE / 'snapshot' / SNAP_FILES[chosen] if chosen else None
+    SNAP_MATCHES[row] = result
+    if chosen:
+        SNAP_USED.add((category, chosen))
+    return result
 
 def fetch_bytes(url):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (mlv-site-builder)', 'Referer': 'https://www.hyunwoojkim.com/'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (mlv-site-builder)'})
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read()
+
+def record_image(key, label='', source_id=None, category=None):
+    """Keep row identity and alternate publication titles for the next backup."""
+    own_category = key.split(':')[0]
+    category = category or own_category
+    if category == own_category:
+        IMAGE_METADATA['labels'][key] = label
+        if source_id:
+            IMAGE_METADATA['identities'][key] = source_id
+    if category in DYNAMIC_IMAGES and _lab(label):
+        aliases = IMAGE_METADATA['aliases'].setdefault(category, {}).setdefault(_lab(label), [])
+        if key not in aliases:
+            aliases.append(key)
 
 def youtube_feed(channel_id):
     """Latest uploads (max 15) of a YouTube channel via its public Atom feed → [{id, title, published}] newest first."""
@@ -191,15 +239,16 @@ def youtube_feed(channel_id):
         if vid is not None and vid.text: out.append({'id': vid.text.strip(), 'title': (title.text or '').strip() if title is not None else '', 'published': (pub.text or '')[:10] if pub is not None else ''})
     return out
 
-def save_image(key, kind, sources, label='', no_images=False):
+def save_image(key, kind, sources, label='', no_images=False, source_id=None):
     """Try each source (Notion file URL, external URL, snapshot path) → site/img/<hash>.webp. Returns relative path or ''."""
     IMG.mkdir(parents=True, exist_ok=True)
     width = CFG['image_widths'].get(kind, 900)
     name = hashlib.sha1(key.encode()).hexdigest()[:12]
     # Google Sites image URLs (lh3.googleusercontent.com/sitesv/...) are re-signed on every page view and
     # always answer 403 outside the site, so they are skipped silently; the bundled snapshot copy is used instead.
-    cands = [s for s in sources if s and 'googleusercontent.com/sitesv/' not in s]
-    snap = snapshot_file(key, kind, label)
+    sources = [s for s in sources if s]
+    cands = [s for s in sources if 'googleusercontent.com/sitesv/' not in s]
+    snap = snapshot_file(key, kind, label, source_id=source_id)
     if snap: cands.append(str(snap))
     errors = []
     for src in cands:
@@ -208,21 +257,29 @@ def save_image(key, kind, sources, label='', no_images=False):
                 if no_images: continue
                 data = fetch_bytes(src)
             else:
-                data = open(src, 'rb').read()
+                data = Path(src).read_bytes()
             ext = 'png' if data[:4] == b'\x89PNG' and kind == 'social' else 'webp'
             out = IMG / f'{name}.{ext}'
             if Image is not None:
                 im = Image.open(io.BytesIO(data)); im.load()
-                if im.mode not in ('RGB', 'RGBA'): im = im.convert('RGBA' if 'A' in im.mode else 'RGB')
-                if im.width > width: im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
-                if ext == 'webp' and im.mode == 'RGBA':
-                    bg = Image.new('RGB', im.size, (255, 255, 255)); bg.paste(im, mask=im.split()[-1]); im = bg
-                im.save(out, quality=82)
+                if not src.startswith('http') and (im.format or '').lower() == ext and im.width <= width:
+                    # Repeated backup refreshes must not recompress existing WebP images.
+                    out.write_bytes(data)
+                else:
+                    if im.mode not in ('RGB', 'RGBA'): im = im.convert('RGBA' if 'A' in im.mode else 'RGB')
+                    if im.width > width: im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+                    if ext == 'webp' and im.mode == 'RGBA':
+                        bg = Image.new('RGB', im.size, (255, 255, 255)); bg.paste(im, mask=im.split()[-1]); im = bg
+                    im.save(out, quality=82)
             else:
                 out.write_bytes(data)
+            record_image(key, label, source_id)
             return f'img/{out.name}'
         except Exception as e:  # try the next candidate
             errors.append(f'{str(e)[:60]} ({src[:50]})')
+    if not no_images and (sources or snap):
+        detail = ' | '.join(errors) or 'source URL is no longer usable and no matching backup exists'
+        raise RuntimeError(f'Image unavailable for {key} ({label or kind}): {detail}')
     if errors:
         print(f'  ! no image for {key}: ' + ' | '.join(errors), file=sys.stderr)
     return ''
@@ -234,6 +291,9 @@ def main():
         sys.exit('NOTION_TOKEN is not set. Create an internal integration at notion.so/profile/integrations and share the "MLV Lab homepage DB" page with it.')
     ds = CFG['data_sources']; no_img = args.no_images
     A = {}   # asset key → relative path (the template's image map)
+    SNAP_MATCHES.clear(); SNAP_USED.clear()
+    for values in IMAGE_METADATA.values():
+        values.clear()
 
     # ---- People
     people, id_to_person = [], {}
@@ -241,7 +301,7 @@ def main():
     for i, r in enumerate(rows, 1):
         p = r['properties']; name = prop(p, 'Name')
         key = f'person:{i}'
-        photo = save_image(key, 'person', prop(p, 'Photo File', default=[]) + [prop(p, 'Photo', 'Photo URL')], label=name, no_images=no_img)
+        photo = save_image(key, 'person', prop(p, 'Photo File', default=[]) + [prop(p, 'Photo', 'Photo URL')], label=name, no_images=no_img, source_id=r['id'])
         if photo: A[key] = photo
         bio = affil = ''; awards = []
         if prop(p, 'Group') == 'Faculty':
@@ -277,7 +337,7 @@ def main():
         n = per_topic_count.get(t, 0); per_topic_count[t] = n + 1
         key = f'fig:{t}:{n}'; cap = prop(p, 'Caption')
         files = prop(p, 'Image File', default=[]); url = prop(p, 'Image URL', 'Image')
-        path = save_image(key, 'fig', files + [url], label=cap, no_images=no_img)
+        path = save_image(key, 'fig', files + [url], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path
         fig_by_id[r['id']] = {'key': key, 'caption': cap, 'topic': t, 'pub': (prop(p, 'Publication', default=[]) or [None])[0]}
         if url: fig_url_to_key[url] = key
@@ -296,13 +356,10 @@ def main():
         elif 'spotlight' in pl: badge = 'Spotlight'
         elif 'oral' in pl: badge = 'Oral'
         elif 'highlight' in pl: badge = 'Highlight'
-        # thumbnail priority: uploaded "Thumbnail File" → a Figure row pointing at this paper → "Thumbnail" URL
-        thumb = ''
+        # Resolve each thumbnail once, after all figure relations are known.
         tfiles = prop(p, 'Thumbnail File', default=[]); turl = prop(p, 'Thumbnail', 'Thumbnail URL')
-        if tfiles:
-            key = f'pubthumb:{i}'; path = save_image(key, 'fig', tfiles, no_images=no_img)
-            if path: A[key] = path; thumb = key
-        elif turl in fig_url_to_key: thumb = fig_url_to_key[turl]
+        thumb = fig_url_to_key.get(turl, '')
+        if thumb not in A: thumb = ''
         pubs.append({
             'id': i, 'pid': prop(p, 'Paper ID'), 'type': prop(p, 'Type'), 'year': int(prop(p, 'Year', default=0) or 0),
             'title': prop(p, 'Title'), 'url': prop(p, 'Paper Link', 'Paper'), 'authors': prop(p, 'Authors'), 'venue': prop(p, 'Venue'),
@@ -310,24 +367,30 @@ def main():
             'note': prop(p, 'Note'), 'highlight': bool(prop(p, 'Highlight', default=False)), 'links': links,
             'members': [id_to_person[m] for m in prop(p, 'MLV Members', default=[]) if m in id_to_person], 'thumb': thumb,
             '_topics': prop(p, 'Research Topics', default=[]), '_turl': turl,
+            '_tfiles': tfiles, '_source_id': r['id'],
         })
     # thumbnails from figure→publication relation (when a figure points at a paper that has no thumbnail yet)
     for f in fig_by_id.values():
-        if f['pub'] in pub_index:
+        if f['pub'] in pub_index and f['key'] in A:
             pb = pubs[pub_index[f['pub']] - 1]
             if not pb['thumb']: pb['thumb'] = f['key']
-    # last resort: the "Thumbnail" URL property
+    # Uploaded file → usable related figure → URL → title/identity-matched backup.
     for pb in pubs:
-        turl = pb.pop('_turl')
-        if not pb['thumb'] and turl:
-            key = f"pubthumb:{pb['id']}"; path = save_image(key, 'fig', [turl], no_images=no_img)
-            if path: A[key] = path; pb['thumb'] = key
+        turl = pb.pop('_turl'); tfiles = pb.pop('_tfiles'); source_id = pb.pop('_source_id')
+        if pb['thumb'] and not tfiles:
+            record_image(pb['thumb'], pb['title'], category='pubthumb')
+            continue
+        related = [str(OUT / A[pb['thumb']])] if pb['thumb'] else []
+        key = f"pubthumb:{pb['id']}"
+        path = save_image(key, 'fig', tfiles + related + [turl], label=pb['title'],
+                          no_images=no_img, source_id=source_id)
+        if path: A[key] = path; pb['thumb'] = key
 
     # ---- Topics
     topics = []
     for n, r in enumerate(topic_rows, 1):
         p = r['properties']
-        figs = [{'img': f['key'], 'caption': f['caption']} for f in fig_by_id.values() if f['topic'] == n]
+        figs = [{'img': f['key'], 'caption': f['caption']} for f in fig_by_id.values() if f['topic'] == n and f['key'] in A]
         rel = []
         for pid in prop(p, 'Related Publications', default=[]):
             if pid in pub_index:
@@ -363,29 +426,29 @@ def main():
     photos = []
     for i, r in enumerate(sort_rows(visible(query_all(ds['photos']))), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'photo:{i}'
-        path = save_image(key, 'photo', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img)
+        path = save_image(key, 'photo', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; photos.append({'img': key, 'caption': cap})
 
     # ---- Videos
     videos = []
     video_id = lambda p: prop(p, 'YouTube ID') or re.sub(r'.*(?:v=|youtu\.be/)([\w-]{11}).*', r'\1', prop(p, 'YouTube URL'))
-    def yt_thumb(vid):
+    def yt_thumb(vid, source_id=None):
         key = f'yt:{vid}'
-        path = save_image(key, 'yt', [f'https://i.ytimg.com/vi/{vid}/hq720.jpg', f'https://i.ytimg.com/vi/{vid}/maxresdefault.jpg', f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'], no_images=no_img)   # 1280px if available, else 320px
+        path = save_image(key, 'yt', [f'https://i.ytimg.com/vi/{vid}/hq720.jpg', f'https://i.ytimg.com/vi/{vid}/maxresdefault.jpg', f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'], no_images=no_img, source_id=source_id)   # 1280px if available, else 320px
         if path: A[key] = path
-        return key
+        return key if path else ''
     all_video_rows = query_all(ds['videos'])
     shown_rows = visible(all_video_rows)
     hidden_video_ids = {video_id(r['properties']) for r in all_video_rows if r not in shown_rows}   # rows with "Show on Site" unchecked also block the auto-sync
     for r in sort_rows(shown_rows):
         p = r['properties']; vid = video_id(p)
-        videos.append({'id': vid, 'title': prop(p, 'Title'), 'url': prop(p, 'YouTube URL') or f'https://www.youtube.com/watch?v={vid}', 'thumb': yt_thumb(vid)})
+        videos.append({'id': vid, 'title': prop(p, 'Title'), 'url': prop(p, 'YouTube URL') or f'https://www.youtube.com/watch?v={vid}', 'thumb': yt_thumb(vid, source_id=r['id'])})
 
     # ---- Highlights
     highlights = []
     for i, r in enumerate(sort_rows(visible(query_all(ds['highlights']))), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'slide:{i}'
-        path = save_image(key, 'slide', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img)
+        path = save_image(key, 'slide', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; highlights.append({'img': key, 'caption': cap, 'link': prop(p, 'Link')})
 
     # ---- Site content (key/value + page bodies)
@@ -430,17 +493,18 @@ def main():
         try:
             known = {v['id'] for v in videos} | hidden_video_ids
             fresh = [f for f in youtube_feed(channel) if f['id'] not in known]
+        except Exception as e:
+            print(f'  ! youtube feed skipped: {str(e)[:120]}', file=sys.stderr)
+        else:
             auto = [{'id': f['id'], 'title': f['title'], 'url': f'https://www.youtube.com/watch?v={f["id"]}', 'thumb': yt_thumb(f['id']), 'date': f['published'], 'auto': True} for f in fresh]
             videos = auto + videos
             print(f'youtube feed: {len(fresh)} new video(s) added automatically')
-        except Exception as e:
-            print(f'  ! youtube feed skipped: {str(e)[:120]}', file=sys.stderr)
 
     data = {'site': site, 'people': people, 'pubs': pubs, 'topics': topics, 'news': news, 'teaching': teaching, 'photos': photos,
             'videos': videos, 'socials': socials, 'highlights': highlights, 'generated': time.strftime('%Y-%m-%d %H:%M')}
     BUILD.mkdir(exist_ok=True)
-    json.dump(data, open(BUILD / 'site_data.json', 'w'), ensure_ascii=False)
-    json.dump(A, open(BUILD / 'assets.json', 'w'), ensure_ascii=False)
+    for filename, value in [('site_data.json', data), ('assets.json', A), ('image_metadata.json', IMAGE_METADATA)]:
+        (BUILD / filename).write_text(json.dumps(value, ensure_ascii=False), encoding='utf-8')
     print(f"people {len(people)} · pubs {len(pubs)} · topics {len(topics)} · news {len(news)} · teaching {len(teaching)} · photos {len(photos)} · videos {len(videos)} · highlights {len(highlights)} · images {len(A)}")
 
 if __name__ == '__main__':

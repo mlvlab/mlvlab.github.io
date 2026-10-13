@@ -344,7 +344,7 @@ footer a{color:#fff}
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#/home" id="brand"><img alt="" id="brandlogo"><span>MLV Lab<small>Machine Learning &amp; Vision · KAIST</small></span></a>
+    <a class="brand" href="#/home" id="brand"><img alt="" id="brandlogo"><span><span id="brand-short">MLV Lab</span><small id="brand-name">Machine Learning and Vision Lab</small></span></a>
     <nav class="tabs" id="tabs"></nav>
     <button class="sbtn" id="searchbtn" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search people, papers…</span><kbd>/</kbd></button>
     <button class="menu iconbtn" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
@@ -354,14 +354,14 @@ footer a{color:#fff}
 <footer>
   <div class="wrap">
     <div>
-      <div class="fb">Machine Learning and Vision Lab</div>
-      <p style="margin-top:6px">KRAFTON SoC Building (E3-5), 291 Daehak-ro, Yuseong-gu, Daejeon 34141, Korea</p>
+      <div class="fb" id="ftname">Machine Learning and Vision Lab</div>
+      <p id="ftaddress" style="margin-top:6px"></p>
       <p class="note" style="margin-top:10px">Built from the lab's Notion database · snapshot <span id="gen"></span></p>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-      <a href="mailto:hyunwoojkim@kaist.ac.kr">hyunwoojkim@kaist.ac.kr</a>
+      <a id="ftemail"></a>
       <a id="ftscholar" href="#" target="_blank" rel="noopener">Google Scholar</a>
-      <a href="https://www.hyunwoojkim.com/" target="_blank" rel="noopener">hyunwoojkim.com</a>
+      <a id="fthome" href="#/home">MLV Lab</a>
     </div>
   </div>
 </footer>
@@ -433,7 +433,7 @@ function route(){
   document.getElementById('tabs').classList.remove('open');
   const main = document.getElementById('main');
   main.innerHTML = RENDER[r](q);
-  document.title = (r==='home'?'':TABS.find(t=>t[0]===r)[1]+' · ')+'MLV Lab';
+  document.title = (r==='home'?'':TABS.find(t=>t[0]===r)[1]+' · ')+S.lab_short;
   window.scrollTo({top:0,behavior:'instant'});
   if(AFTER[r]) AFTER[r](q);
   reveal();
@@ -462,7 +462,7 @@ function homePage(){
   const tally = venueTally().map(([v,n])=>`<span><b>${n}</b>${esc(v)}</span>`).join('');
   const news = D.news.slice(0,S.home_news_count);
   const cta = `<div class="cta"><a class="btn primary" href="#/publications">Publications</a><a class="btn ghost" href="#/people">People</a>${S.openings_open?`<a class="btn ghost" href="#/openings">Openings</a>`:''}</div>`;
-  return banner('hero','Machine Learning and Vision Lab','School of Computing, KAIST',true,cta) + `
+  return banner('hero',esc(S.lab_name),'School of Computing, KAIST',true,cta) + `
   <section class="block"><div class="wrap about">
     <div>
       <h2>About</h2>
@@ -475,13 +475,13 @@ function homePage(){
       <div class="side-card"><h4>Research areas</h4><div class="chips" style="margin-top:6px">${D.topics.map(t=>`<a href="#/research?t=topic${t.id}" style="text-decoration:none">${topicChip(t.id)}</a>`).join('')}</div></div>
     </div>
   </div></section>
-  <section class="block band"><div class="wrap">
+  ${D.highlights.length ? `<section class="block band"><div class="wrap">
     <div class="sec-head"><h2>Highlights</h2></div>
     <div class="carousel" id="carousel">
       <div class="frame">${D.highlights.map((h,i)=>`<img src="${img(h.img)}" alt="" class="${i===0?'on':''}" loading="${i<2?'eager':'lazy'}">`).join('')}</div>
       <div class="cap"><span class="idx" id="cidx">1 / ${D.highlights.length}</span><p id="ccap">${esc(D.highlights[0].caption)}</p><div class="arrows"><button class="iconbtn" id="cprev" aria-label="Previous">${ICON.left}</button><button class="iconbtn" id="cnext" aria-label="Next">${ICON.right}</button></div></div>
     </div>
-  </div></section>
+  </div></section>` : ''}
   <section class="block"><div class="wrap">
     <div class="sec-head"><h2>News</h2><button class="btn line" id="morenews">Show all ${D.news.length}</button></div>
     <ul class="news plain" id="newslist">${news.map(newsRow).join('')}</ul>
@@ -492,16 +492,16 @@ function homePage(){
   </div></section>`;
 }
 // NEW badge is automatic: the newest N items (Site Content `home_new_count`, default 5). The Notion "New" checkbox is not used.
-const NEW_N = Number(S.home_new_count) > 0 ? Number(S.home_new_count) : 5;
+const NEW_N = Number.isFinite(Number(S.home_new_count)) && Number(S.home_new_count) >= 0 ? Math.floor(Number(S.home_new_count)) : 5;
 const newsRow = (n, i) => `<li><time>${n.date}</time><p>${md(n.md).replace(/^<p>|<\/p>$/g,'')}${i < NEW_N ? '<span class="pill">NEW</span>' : ''}</p></li>`;
 function homeAfter(){
+  document.getElementById('morenews').onclick=e=>{ document.getElementById('newslist').innerHTML=D.news.map(newsRow).join(''); e.target.remove(); };
   let i=0; const imgs=[...document.querySelectorAll('#carousel .frame img')]; if(!imgs.length) return;
   const show=k=>{ i=(k+imgs.length)%imgs.length; imgs.forEach((im,j)=>im.classList.toggle('on',j===i)); document.getElementById('cidx').textContent=`${i+1} / ${imgs.length}`; document.getElementById('ccap').textContent=D.highlights[i].caption; };
   window.__ctimer = setInterval(()=>show(i+1),6000);
   const reset=()=>{clearInterval(window.__ctimer);window.__ctimer=setInterval(()=>show(i+1),6000)};
   document.getElementById('cprev').onclick=()=>{show(i-1);reset()};
   document.getElementById('cnext').onclick=()=>{show(i+1);reset()};
-  document.getElementById('morenews').onclick=e=>{ document.getElementById('newslist').innerHTML=D.news.map(newsRow).join(''); e.target.remove(); };
 }
 
 /* ---------- people ---------- */
@@ -700,7 +700,7 @@ function contactPage(){
   const embed = (src, link, label) => MODE==='local'
     ? `<div class="embed"><iframe src="${esc(src)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="${label}"></iframe></div>`
     : `<div class="embed"><div class="ph"><h4>${label}</h4><p>The embedded ${label.toLowerCase()} appears here on the real site; this preview can't load Google embeds.</p><a class="btn navy" href="${esc(link)}" target="_blank" rel="noopener">Open ${label} ↗</a></div></div>`;
-  return banner('hero','Contact','KRAFTON SoC Building (E3-5), KAIST') + `<div class="wrap" style="padding-top:32px">
+  return banner('hero','Contact',esc((S.address_en || '').split('\n')[0])) + `<div class="wrap" style="padding-top:32px">
     <div class="contact">
       <div class="card"><h3>Address</h3><p class="addr">${esc(S.address_en)}</p><div class="links"><a class="sec" href="mailto:${S.pi_email}">${ICON.mail}${S.pi_email}</a></div></div>
       <div class="card"><h3>주소</h3><p class="addr">${esc(S.address_ko)}</p><div class="links"><a class="sec" href="mailto:${S.apply_email}">${ICON.mail}${S.apply_email}</a></div></div>
@@ -714,7 +714,7 @@ function contactPage(){
 /* ---------- openings ---------- */
 let LANG='en';
 function openingsPage(){
-  return banner('hero',esc(S.openings_title),'이노코어 박사후연구원 모집 · Machine Learning and Vision Lab, KAIST') + `<div class="wrap" style="padding-top:32px">
+  return banner('hero',esc(S.openings_title),esc(S.lab_name)) + `<div class="wrap" style="padding-top:32px">
     <div class="openings">
       <div>
         <div class="langs"><button class="${LANG==='en'?'on':''}" data-l="en">English</button><button class="${LANG==='ko'?'on':''}" data-l="ko">한국어</button></div>
@@ -723,7 +723,7 @@ function openingsPage(){
       <aside class="side card">
         <span class="status"><i></i>${S.openings_open?'Accepting applications':'Closed'}</span>
         <p style="margin-top:14px;font-size:14.5px;color:var(--muted)">Send a CV and two representative publications. A research statement and other supporting materials are optional.</p>
-        <a class="btn navy" style="margin-top:16px" href="mailto:${S.apply_email}?subject=InnoCORE%20Postdoc%20application">Apply · ${S.apply_email}</a>
+        <a class="btn navy" style="margin-top:16px" href="mailto:${esc(S.apply_email)}?subject=${encodeURIComponent(S.openings_title+' application')}">Apply · ${esc(S.apply_email)}</a>
       </aside>
     </div>
     <div style="height:32px"></div>
@@ -763,6 +763,14 @@ const AFTER = {home:homeAfter, publications:pubsAfter, research:researchAfter, p
 
 document.getElementById('tabs').innerHTML = TABS.map(([p,l])=>`<a href="#/${p}" data-p="${p}">${l}</a>`).join('');
 document.getElementById('brandlogo').src = img('logo');
+document.getElementById('brand-short').textContent = S.lab_short;
+document.getElementById('brand-name').textContent = S.lab_name;
+document.getElementById('ftname').textContent = S.lab_name;
+document.getElementById('ftaddress').textContent = (S.address_en || '').split('\n').slice(0,2).join(', ');
+document.getElementById('ftemail').textContent = S.pi_email;
+document.getElementById('ftemail').href = 'mailto:' + S.pi_email;
+document.getElementById('ftemail').hidden = !S.pi_email;
+document.getElementById('fthome').textContent = S.lab_short;
 document.getElementById('gen').textContent = D.generated;
 document.getElementById('ftscholar').href = S.scholar;
 document.getElementById('searchbtn').onclick = openSearch;

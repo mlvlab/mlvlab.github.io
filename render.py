@@ -3,10 +3,11 @@
 render.py — build/site_data.json + build/assets.json + template.html → site/index.html
 
   python render.py               # render what fetch_notion.py produced
-  python render.py --snapshot    # render the bundled 2026-09 snapshot (no Notion token needed)
+  python render.py --snapshot    # render the verified repository backup (no Notion token needed)
 """
 import json, shutil, argparse, sys
 from pathlib import Path
+from validate_site import validate
 
 HERE = Path(__file__).resolve().parent
 CFG = json.load(open(HERE / 'config.json'))
@@ -17,6 +18,9 @@ def main():
     if args.snapshot:
         data = json.load(open(HERE / 'snapshot' / 'site_data.json'))
         man = json.load(open(HERE / 'snapshot' / 'manifest.json'))
+        errors = validate(data, man['files'], HERE / 'snapshot')
+        if errors:
+            sys.exit('Snapshot validation failed:\n' + '\n'.join(errors))
         assets = {}
         for key, rel in man['files'].items():
             src = HERE / 'snapshot' / rel; dst = OUT / rel
@@ -28,6 +32,9 @@ def main():
             assets = json.load(open(HERE / 'build' / 'assets.json'))
         except FileNotFoundError:
             sys.exit('build/site_data.json not found — run fetch_notion.py first (or use --snapshot).')
+        errors = validate(data, assets, OUT)
+        if errors:
+            sys.exit('Image validation failed:\n' + '\n'.join(errors))
     tpl = open(HERE / 'template.html', encoding='utf-8').read()
     j = lambda x: json.dumps(x, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
     html = tpl.replace('__ASSETS__', j(assets)).replace('__DATA__', j(data)).replace('__MODE__', 'local')

@@ -25,12 +25,27 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check image preservation and page behavior
+        run: |
+          python -m unittest discover -s tests
+          node tests/test_frontend.cjs
       - name: Fetch Notion databases
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: python fetch_notion.py
       - name: Render site
         run: python render.py
+      - name: Package verified content and image backup
+        run: python refresh_snapshot.py --from-build --output build/site-backup
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-backup
+          path: build/site-backup
+          retention-days: 90
+          if-no-files-found: error
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
