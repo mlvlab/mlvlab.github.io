@@ -153,7 +153,7 @@ open site/index.html
 - Notion integration은 해당 상위 페이지와 10개 데이터 소스에 읽기 권한이 있어야 합니다. 페이지의 Connections에서 연결 상태를 확인합니다.
 - GitHub의 **Settings → Secrets and variables → Actions**에 `NOTION_TOKEN`을 저장합니다. 토큰은 저장소 파일에 넣지 않습니다.
 - GitHub Pages의 Source는 **GitHub Actions**입니다.
-- DB를 다른 곳에 새로 만들거나 복제하면 `config.json`의 data source ID도 확인해야 합니다. DB 제목만 같다고 자동 연결되지 않습니다.
+- **DB를 다른 워크스페이스로 옮겼을 때** (예: 개인 계정 → 연구실 계정): `config.json`의 `parent_page`에 옮겨진 "MLV Lab homepage DB" 페이지 링크(또는 ID)를 넣으면, 빌더가 그 아래의 10개 DB를 **제목(People, Publications, Research Topics, Research Figures, News, Teaching, Photos, MLV TV, Home Highlights, Site Content)으로 찾아** 씁니다. 아래 `data_sources` ID는 제목을 못 찾았을 때의 예비값이므로 DB 제목은 바꾸지 마세요. 새 워크스페이스에서 만든 integration을 그 페이지의 Connections에 추가하고 `NOTION_TOKEN`을 새 토큰으로 바꾸는 것까지 해야 합니다.
 - 수정이 반영되지 않으면 최신 Actions 결과 → `Show on Site` → 열 이름/Key → 실제 본문/Value 우선순위 순으로 확인합니다.
 - 이미지가 없으면 `… File` 업로드, 파일 접근 가능 여부, 빌드의 이미지 경고·검사 결과를 확인합니다.
 
@@ -161,7 +161,7 @@ open site/index.html
 
 | 파일 | 역할 |
 |---|---|
-| `config.json` | 10개 데이터 소스 ID, 이미지 크기, 기본 YouTube 채널 |
+| `config.json` | `parent_page`(DB들이 있는 상위 페이지), 예비 데이터 소스 ID, 이미지 크기, 기본 YouTube 채널 |
 | `fetch_notion.py` | Notion 데이터·이미지 읽기, snapshot 대체 이미지 연결 |
 | `render.py` | 데이터와 template으로 사이트 생성, `--snapshot` 수동 복구 |
 | `template.html` | 화면 디자인·메뉴·표시 기능 |

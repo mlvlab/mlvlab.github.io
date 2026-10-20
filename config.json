@@ -1,5 +1,7 @@
 {
   "notion_version": "2025-09-03",
+  "parent_page": "3cf341ce-2613-8056-9133-f0248ce2c8af",
+  "parent_page_note": "URL or id of the \"MLV Lab homepage DB\" page. The 10 databases are found by title under it; the ids below are only a fallback.",
   "data_sources": {
     "people": "2202f3f7-7214-4e80-bede-870d0d2ec3ec",
     "publications": "e1a62360-3dc8-40c5-a309-9f2d286c80d9",

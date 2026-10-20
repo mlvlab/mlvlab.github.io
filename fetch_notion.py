@@ -44,10 +44,62 @@ def api(method, path, body=None, retries=4):
         except urllib.error.HTTPError as e:
             if e.code == 429 or e.code >= 500:
                 time.sleep(2 ** attempt); continue
-            print('Notion API error', e.code, e.read().decode()[:400], file=sys.stderr); raise
+            print('Notion API error', e.code, e.read().decode()[:400], file=sys.stderr)
+            if e.code == 404:
+                print('  hint: 404 = the integration cannot see this page/database. Add the integration under the page\'s "Connections" '
+                      'and make sure NOTION_TOKEN was created in the workspace that holds the "MLV Lab homepage DB" page.', file=sys.stderr)
+            raise
     raise RuntimeError('Notion API: too many retries for ' + path)
 
+# The 10 databases are looked up BY TITLE under config["parent_page"] (the "MLV Lab homepage DB" page), so moving
+# that page to another workspace (or re-creating it) only needs that one value changed — the hard-coded
+# "data_sources" ids in config.json are the fallback when parent_page is empty or a title is not found.
+DB_TITLES = {'people': 'People', 'publications': 'Publications', 'topics': 'Research Topics', 'figures': 'Research Figures',
+             'news': 'News', 'teaching': 'Teaching', 'photos': 'Photos', 'videos': 'MLV TV', 'highlights': 'Home Highlights',
+             'site_content': 'Site Content'}
+
+def notion_id(s):
+    """Page/database id from a Notion URL or a bare id (with or without dashes) → dashed UUID; '' if none."""
+    m = re.search(r'([0-9a-f]{8})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{4})-?([0-9a-f]{12})(?![0-9a-f])', (s or '').strip().lower())
+    return '-'.join(m.groups()) if m else ''
+
+def resolve_data_sources():
+    ds = dict(CFG.get('data_sources', {}))
+    pid = notion_id(CFG.get('parent_page', ''))
+    if not pid: return ds
+    found, cursor = {}, None
+    while True:
+        try:
+            res = api('GET', f'/blocks/{pid}/children?page_size=100' + (f'&start_cursor={cursor}' if cursor else ''))
+        except urllib.error.HTTPError as e:
+            sys.exit(f'Cannot read the parent page {pid} ({e.code}). Is the integration added under "Connections" on that page, '
+                     f'and does NOTION_TOKEN belong to the workspace the page lives in?')
+        for b in res.get('results', []):
+            if b.get('type') == 'child_database':
+                found.setdefault((b['child_database'].get('title') or '').strip().lower(), b['id'])
+        if not res.get('has_more'): break
+        cursor = res['next_cursor']
+    for key, title in DB_TITLES.items():
+        dbid = found.get(title.lower())
+        if not dbid:
+            print(f'  ! no database titled "{title}" under the parent page — using the id from config.json', file=sys.stderr); continue
+        srcs = api('GET', f'/databases/{dbid}').get('data_sources') or []
+        if srcs: ds[key] = srcs[0]['id']
+        else: print(f'  ! database "{title}" has no data source — using the id from config.json', file=sys.stderr)
+    print(f'  databases resolved under parent page: {sum(1 for t in DB_TITLES.values() if t.lower() in found)}/{len(DB_TITLES)}')
+    return ds
+
+_RESOLVED = None
+def resolved_id(ds_id):
+    """config.json id → id of the same-titled database under parent_page (resolved once per run)."""
+    global _RESOLVED
+    if _RESOLVED is None:
+        real = resolve_data_sources()
+        _RESOLVED = {CFG['data_sources'][k]: v for k, v in real.items() if k in CFG.get('data_sources', {})}
+    return _RESOLVED.get(ds_id, ds_id)
+
 def query_all(ds_id):
+    ds_id = resolved_id(ds_id)
     rows, cursor = [], None
     while True:
         body = {'page_size': 100}
