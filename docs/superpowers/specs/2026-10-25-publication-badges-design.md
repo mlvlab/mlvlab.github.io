@@ -1,20 +1,18 @@
 # Publication metadata placement
 
-Approved in chat on 2026-10-25: put venue and year in a separate row immediately above each paper figure, with presentation/award badges beside them. Keep research topics with the paper description. Do not overlay the figure.
+## Intent
 
-## Intent and constraints
+Make venue and presentation distinctions immediately recognizable while keeping research topics with the paper description. The user refined the visual direction using https://hyungjin-chung.github.io/ and explicitly allowed labels on the figures and changes to the existing boxes.
 
-- Separate publication venue/distinction from research classification for easier scanning.
-- Preserve Notion schema, ingestion, author/topic/year/type filters, links, and figure enlargement.
-- Keep full figures uncropped, and keep their metadata attached on mobile.
-- Keep complete citation and presentation details; suppress the extra presentation suffix when the citation already contains it.
-- Show a quiet publication-type placeholder when no figure exists, avoiding repeated venue/year labels.
+## Design
 
-## Approaches
+- Use a navy venue/year ribbon overlapping the upper-left figure corner, inspired by the supplied reference.
+- Place Oral, Spotlight, or award text on a warm-colored ribbon at the lower-right corner. Placement and colors are implementation choices for this preview.
+- Increase the desktop figure column to 220px, preserve image proportions, and use a subtle image shadow.
+- Separate publication rows with whitespace; remove the full-row hover card, stripe, and image scaling.
+- Keep muted research-topic tags in the text column and retain complete citation details.
+- Maintain existing Notion fields, filters, links, image enlargement, and missing-image placeholders.
 
-1. Overlay labels on the figure: compact, but obscures diagrams and small text.
-2. Put a metadata row above the figure: chosen by the user; clear separation without covering content.
+## Alternatives considered
 
-## Implementation choices
-
-Use the existing template and styles. Venue/year uses the lab's navy, preprints a neutral tone, distinctions a warm accent. Research-topic labels stay in the text column with quieter styling. Long labels wrap. Source fields and Notion connections remain unchanged.
+The initial separate metadata row was implemented, but the user's reference clarified that an integrated image label better matches the intended look. A banner across the full image would obscure more of the scientific figure; compact corner ribbons are used instead. Clicking a thumbnail still opens the unlabelled full figure.
