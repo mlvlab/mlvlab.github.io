@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import importlib.util
 import io
 import json
@@ -207,6 +208,51 @@ class ImageFallbackTests(unittest.TestCase):
         (self.snapshot / 'photo.webp').write_bytes(original)
         result = module.save_image('photo:2', 'photo', [], label='Lab picnic')
         self.assertEqual((self.root / 'site' / result).read_bytes(), original)
+        self.assertEqual(result, f'img/{hashlib.sha256(original).hexdigest()}.webp')
+
+    def test_changed_image_at_same_logical_key_gets_a_new_url(self):
+        module = self.load()
+        if module.Image is None:
+            self.skipTest('Pillow is required to verify image encoding')
+        source = self.root / 'paper.png'
+        module.Image.new('RGB', (4, 4), 'red').save(source)
+        first = module.save_image('pubthumb:20', 'fig', [str(source)])
+        original = (module.OUT / first).read_bytes()
+        module.Image.new('RGB', (4, 4), 'blue').save(source)
+        second = module.save_image('pubthumb:20', 'fig', [str(source)])
+        self.assertNotEqual(first, second)
+        self.assertEqual((module.OUT / first).read_bytes(), original)
+        self.assertNotEqual((module.OUT / second).read_bytes(), original)
+
+    def test_reordered_image_keeps_its_url_after_encoding(self):
+        module = self.load()
+        if module.Image is None:
+            self.skipTest('Pillow is required to verify image encoding')
+        module.CFG['image_widths']['fig'] = 2
+        source = self.root / 'paper.png'
+        module.Image.new('RGB', (4, 4), 'red').save(source)
+        first = module.save_image('pubthumb:20', 'fig', [str(source)])
+        second = module.save_image('pubthumb:21', 'fig', [str(source)])
+        self.assertEqual(first, second)
+        encoded = (module.OUT / first).read_bytes()
+        self.assertEqual(first, f'img/{hashlib.sha256(encoded).hexdigest()}.webp')
+        with module.Image.open(io.BytesIO(encoded)) as image:
+            self.assertEqual(image.size, (2, 2))
+
+    def test_social_png_stays_transparent_after_resizing(self):
+        module = self.load()
+        if module.Image is None:
+            self.skipTest('Pillow is required to verify image encoding')
+        module.CFG['image_widths']['social'] = 2
+        source = self.root / 'icon.png'
+        module.Image.new('RGBA', (4, 4), (255, 0, 0, 128)).save(source)
+        result = module.save_image('social:0', 'social', [str(source)])
+        encoded = (module.OUT / result).read_bytes()
+        self.assertEqual(result, f'img/{hashlib.sha256(encoded).hexdigest()}.png')
+        with module.Image.open(io.BytesIO(encoded)) as image:
+            self.assertEqual(image.format, 'PNG')
+            self.assertEqual(image.size, (2, 2))
+            self.assertEqual(image.getpixel((0, 0)), (255, 0, 0, 128))
 
     def test_restored_hidden_row_recovers_archived_image_by_identity_after_rename(self):
         module = self.load(archive={
