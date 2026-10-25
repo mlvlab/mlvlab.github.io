@@ -214,15 +214,16 @@ table.list td a{color:var(--navy);font-weight:700}
 .year-head .count{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .pub{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;padding:28px 0;position:relative}
 .pub .pub-visual{min-width:0;align-self:start;position:relative;margin-top:5px;margin-bottom:8px}
-.pub .pub-venue,.pub .pub-distinction{position:absolute;z-index:1;display:inline-block;max-width:calc(100% + 6px);padding:5px 12px;border-radius:2px;font-size:12px;line-height:1.35;font-weight:700;overflow-wrap:anywhere;pointer-events:none;box-shadow:0 2px 5px rgba(15,31,56,.16)}
-.pub .pub-venue{top:-6px;left:-6px;background:var(--navy);color:#fff}
+.pub .pub-meta{position:absolute;top:-6px;left:-6px;z-index:1;display:flex;align-items:flex-start;gap:4px;max-width:calc(100% + 6px);pointer-events:none}
+.pub .pub-venue,.pub .pub-distinction{display:inline-block;min-width:0;max-width:100%;padding:5px 12px;border-radius:2px;font-size:12px;line-height:1.35;font-weight:700;overflow-wrap:anywhere;box-shadow:0 2px 5px rgba(15,31,56,.16)}
+.pub .pub-venue{position:relative;background:var(--navy);color:#fff}
 .pub .pub-venue::before{content:'';position:absolute;left:0;bottom:-5px;border-top:5px solid #101D31;border-left:6px solid transparent}
 .pub .pub-venue.preprint{background:#EDF0F4;color:#49566A}
 .pub .pub-venue.preprint::before{border-top-color:#BFC7D2}
 .pub .pub-year{font-weight:500;white-space:nowrap;margin-left:3px}
-.pub .pub-distinction{right:-6px;bottom:-8px;background:#A64C26;color:#fff}
+.pub .pub-distinction{flex-shrink:0;max-width:55%;background:#A64C26;color:#fff}
 .pub .pub-body{min-width:0}
-/* Figures keep their natural proportions; ribbons sit on the thumbnail corners. */
+/* Figures keep their natural proportions; metadata shares the upper-left ribbon row. */
 .pub .thumb{border-radius:4px;background:#fff;min-height:138px;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 2px 7px rgba(15,31,56,.12)}
 .pub .thumb img{display:block;width:100%;height:auto;max-height:180px;object-fit:contain;border-radius:4px;background:#fff}
 .pub .thumb button{width:100%;min-height:138px;display:flex;align-items:center;justify-content:center;cursor:zoom-in;border-radius:4px}
@@ -580,7 +581,7 @@ function pubRow(p, activeAuthor){
   const extraPresentation = p.presentation && !normalized(p.venue).includes(normalized(p.presentation));
   return `<article class="pub" id="pub${p.id}">
     <div class="pub-visual">
-      <span class="pub-venue${p.type==='Preprint'?' preprint':''}">${esc(p.venue_short)} <span class="pub-year">${esc(p.year)}</span></span>${distinction?`<span class="pub-distinction" title="${esc(p.presentation||distinction)}">${esc(distinction)}</span>`:''}
+      <div class="pub-meta"><span class="pub-venue${p.type==='Preprint'?' preprint':''}">${esc(p.venue_short)} <span class="pub-year">${esc(p.year)}</span></span>${distinction?`<span class="pub-distinction" title="${esc(p.presentation||distinction)}">${esc(distinction)}</span>`:''}</div>
       <div class="thumb${p.thumb?'':' placeholder'}">${p.thumb?`<button data-fig="${p.id}" aria-label="Enlarge figure"><img src="${img(p.thumb)}" alt="" loading="lazy"></button>`:`<div class="tile"><span aria-hidden="true">${ICON.cv}</span>${esc(p.type||'Publication')}</div>`}</div>
     </div>
     <div class="pub-body">

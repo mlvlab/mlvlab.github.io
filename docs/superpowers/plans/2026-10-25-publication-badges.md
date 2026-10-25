@@ -22,3 +22,5 @@ Preserve Notion ingestion and all publication content. Check long venue labels, 
 The existing `codex/publication-badges` worktree and PR #2 are reused. This is a visual refinement; no new tests that merely mirror CSS are needed. Production deployment is outside this preview step.
 
 Validation: 8 frontend and 33 Python checks passed; snapshot built with 321 images. Desktop and 390px mobile previews checked an Oral paper, multiple topics, the longest venue label, and a missing figure. Clicking the venue ribbon opened the full figure. A separate review found no actionable issues.
+
+Follow-up: the user requested the distinction immediately to the right of the venue. Group the two ribbons in one upper-left flex row, retaining click-through behavior and long-label wrapping.
