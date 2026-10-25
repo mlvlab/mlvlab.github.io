@@ -295,7 +295,6 @@ def save_image(key, kind, sources, label='', no_images=False, source_id=None):
     """Try each source (Notion file URL, external URL, snapshot path) → site/img/<hash>.webp. Returns relative path or ''."""
     IMG.mkdir(parents=True, exist_ok=True)
     width = CFG['image_widths'].get(kind, 900)
-    name = hashlib.sha1(key.encode()).hexdigest()[:12]
     # Google Sites image URLs (lh3.googleusercontent.com/sitesv/...) are re-signed on every page view and
     # always answer 403 outside the site, so they are skipped silently; the bundled snapshot copy is used instead.
     sources = [s for s in sources if s]
@@ -311,20 +310,23 @@ def save_image(key, kind, sources, label='', no_images=False, source_id=None):
             else:
                 data = Path(src).read_bytes()
             ext = 'png' if data[:4] == b'\x89PNG' and kind == 'social' else 'webp'
-            out = IMG / f'{name}.{ext}'
+            encoded = data
             if Image is not None:
                 im = Image.open(io.BytesIO(data)); im.load()
                 if not src.startswith('http') and (im.format or '').lower() == ext and im.width <= width:
                     # Repeated backup refreshes must not recompress existing WebP images.
-                    out.write_bytes(data)
+                    encoded = data
                 else:
                     if im.mode not in ('RGB', 'RGBA'): im = im.convert('RGBA' if 'A' in im.mode else 'RGB')
                     if im.width > width: im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
                     if ext == 'webp' and im.mode == 'RGBA':
                         bg = Image.new('RGB', im.size, (255, 255, 255)); bg.paste(im, mask=im.split()[-1]); im = bg
-                    im.save(out, quality=82)
-            else:
-                out.write_bytes(data)
+                    buffer = io.BytesIO()
+                    im.save(buffer, format=ext.upper(), quality=82)
+                    encoded = buffer.getvalue()
+            # Image URLs must change with their bytes, even when row numbers are reused.
+            out = IMG / f'{hashlib.sha256(encoded).hexdigest()}.{ext}'
+            out.write_bytes(encoded)
             record_image(key, label, source_id)
             return f'img/{out.name}'
         except Exception as e:  # try the next candidate
