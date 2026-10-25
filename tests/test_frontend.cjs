@@ -84,3 +84,21 @@ test('editable lab and contact values reach the banners as escaped text', () => 
   assert.match(vm.runInContext('homePage()', context), /Example &lt;Lab&gt;/);
   assert.match(vm.runInContext('contactPage()', context), /New &lt;Building&gt;/);
 });
+
+test('publication citation does not repeat presentation details it already contains', () => {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs.find(p => p.id === 19),
+    venue: 'AAAI, 2026. (Oral presentation, ~top 5%)',
+    presentation: 'Oral presentation, ~top 5%', badge: 'Oral'};
+  const output = vm.runInContext('pubRow(paper)', context).replace(/<[^>]*>/g, '');
+  assert.equal((output.match(/Oral presentation, ~top 5%/g) || []).length, 1);
+});
+
+test('publication citation retains presentation details absent from the venue', () => {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs.find(p => p.id === 19),
+    venue: 'AAAI, 2026.', presentation: 'Oral presentation, ~top 5%', badge: 'Oral'};
+  const output = vm.runInContext('pubRow(paper)', context).replace(/<[^>]*>/g, '');
+  assert.match(output, /AAAI, 2026\./);
+  assert.equal((output.match(/Oral presentation, ~top 5%/g) || []).length, 1);
+});
