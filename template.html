@@ -40,38 +40,51 @@ p{margin:0}
 .prose li{margin:.25em 0}
 
 /* ---------- header ---------- */
-.top{position:sticky;top:0;z-index:40;background:var(--navy-deep);color:#fff}
-.top .wrap{display:flex;align-items:center;gap:14px;height:66px;max-width:1280px}
-.brand{display:flex;align-items:center;gap:12px;color:#fff;font-weight:700;font-size:17px;letter-spacing:.02em;white-space:nowrap;text-transform:uppercase;line-height:1.1;flex:none}   /* never shrinks → can't overlap the tabs */
+.top{--header-ink:#fff;--header-muted:rgba(255,255,255,.78);--header-line:rgba(255,255,255,.22);position:fixed;inset:0 0 auto;z-index:40;color:var(--header-ink);background:linear-gradient(180deg,rgba(15,31,56,.34),rgba(15,31,56,0));transition:color .32s ease}
+.top::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,.97);opacity:0;box-shadow:0 1px 16px rgba(15,31,56,.05);transition:opacity .32s ease;pointer-events:none}
+.top.is-scrolled,.top.menu-open{--header-ink:var(--navy-deep);--header-muted:#536174;--header-line:var(--line)}
+.top.is-scrolled::before,.top.menu-open::before{opacity:1;backdrop-filter:blur(12px)}
+.top .wrap{position:relative;display:flex;align-items:center;gap:14px;height:88px;max-width:1320px;border-bottom:1px solid var(--header-line);transition:height .32s ease,border-color .32s ease}
+.top.is-scrolled .wrap{height:72px;border-bottom-color:transparent}
+.brand{display:flex;align-items:center;gap:12px;color:var(--header-ink);font-weight:700;font-size:17px;letter-spacing:.02em;white-space:nowrap;text-transform:uppercase;line-height:1.1;flex:none;transition:color .32s ease}   /* never shrinks → can't overlap the tabs */
 .brand:hover{text-decoration:none}
 .brand img{height:32px;width:auto;border-radius:3px;background:#fff;padding:2px}
-.brand small{display:block;font:500 10px/1.3 var(--mono);letter-spacing:.08em;color:rgba(255,255,255,.65);text-transform:uppercase;margin-top:3px}
-nav.tabs{display:flex;gap:2px;margin-left:auto;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+.brand small{display:block;font:500 10px/1.3 var(--mono);letter-spacing:.08em;color:var(--header-muted);text-transform:uppercase;margin-top:4px;transition:color .32s ease}
+nav.tabs{display:flex;gap:4px;margin-left:auto;flex:0 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
-nav.tabs a{padding:8px 8px;color:rgba(255,255,255,.72);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;border-bottom:2px solid transparent}
-nav.tabs a:hover{color:#fff;text-decoration:none}
-nav.tabs a.active{color:#fff;border-bottom-color:#fff}
-.sbtn{display:flex;align-items:center;gap:8px;padding:7px 10px 7px 12px;border:1px solid rgba(255,255,255,.28);border-radius:999px;color:rgba(255,255,255,.8);font-size:13px;white-space:nowrap;flex:none}
-.sbtn:hover{background:rgba(255,255,255,.1)}
-.sbtn kbd{font-family:var(--code);font-size:11px;padding:1px 6px;border:1px solid rgba(255,255,255,.3);border-radius:5px}
+nav.tabs a{position:relative;padding:12px 8px;color:var(--header-muted);font-weight:600;font-size:12px;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;transition:color .24s ease}
+nav.tabs a::after{content:"";position:absolute;left:8px;right:8px;bottom:5px;height:1.5px;border-radius:2px;background:currentColor;transform:scaleX(0);transform-origin:left;opacity:.8;transition:transform .28s cubic-bezier(.2,.7,.2,1)}
+nav.tabs a:hover,nav.tabs a.active{color:var(--header-ink);text-decoration:none}
+nav.tabs a:hover::after,nav.tabs a.active::after,nav.tabs a:focus-visible::after{transform:scaleX(1)}
+.sbtn{display:flex;align-items:center;gap:8px;padding:7px 10px 7px 12px;border:1px solid var(--header-line);border-radius:999px;color:var(--header-muted);font-size:13px;white-space:nowrap;flex:none;transition:color .24s ease,background-color .24s ease,border-color .24s ease}
+.sbtn:hover{color:var(--header-ink);background:rgba(128,145,166,.12)}
+.sbtn kbd{font-family:var(--code);font-size:11px;padding:1px 6px;border:1px solid var(--header-line);border-radius:5px}
 .sbtn svg{width:15px;height:15px}
-button.menu{display:none;padding:8px;border-radius:999px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,.28)}
-button.menu:hover{background:rgba(255,255,255,.1)}
+button.menu{display:none;padding:8px;border-radius:999px;color:var(--header-ink);background:transparent;border:1px solid var(--header-line);transition:color .24s ease,background-color .24s ease,border-color .24s ease}
+button.menu:hover{background:rgba(128,145,166,.12)}
 button.menu svg{width:18px;height:18px}
 .sbtn span{display:none}   /* compact search button (icon + / key) so all 9 tabs always fit */
 @media (max-width:1500px){.brand small{display:none}}
-@media (max-width:1150px){nav.tabs a{padding:8px 5px;letter-spacing:.02em;font-size:11.5px}}
-@media (max-width:1000px){
-  nav.tabs{position:fixed;inset:66px 0 auto 0;background:var(--navy-deep);flex-direction:column;padding:10px 16px 16px;display:none;margin:0}
-  nav.tabs.open{display:flex}
-  button.menu{display:inline-flex;margin-left:auto}
+@media (max-width:1320px){nav.tabs{gap:2px}nav.tabs a{padding:12px 6px;letter-spacing:.03em;font-size:11.5px}}
+@media (max-width:1120px){
+  .top .wrap,.top.is-scrolled .wrap{height:72px}
+  nav.tabs{position:fixed;inset:72px 0 auto 0;background:rgba(255,255,255,.98);color:var(--navy-deep);flex-direction:column;padding:12px 20px 20px;margin:0;max-height:calc(100dvh - 72px);overflow-y:auto;box-shadow:0 16px 28px rgba(15,31,56,.09);visibility:hidden;opacity:0;transform:translateY(-8px);pointer-events:none;transition:opacity .2s ease,transform .24s ease,visibility .24s}
+  nav.tabs.open{visibility:visible;opacity:1;transform:none;pointer-events:auto}
+  nav.tabs a{padding:12px 14px;border-radius:7px;font-size:13px;letter-spacing:.05em;color:#536174}
+  nav.tabs a:hover,nav.tabs a.active{color:var(--navy);background:var(--navy-soft)}
+  nav.tabs a::after{display:none}
+  .sbtn{margin-left:auto}
+  button.menu{display:inline-flex}
 }
+@media (max-width:420px){.top .wrap{gap:10px;padding:0 16px}.brand{font-size:14px;gap:8px}.brand img{height:28px}.sbtn{padding:8px}.sbtn kbd{display:none}}
+#main:focus{outline:none}
+[id]{scroll-margin-top:92px}
 
 /* ---------- page banner ---------- */
 .banner{position:relative;background:var(--navy-deep);color:#fff;overflow:hidden}
-.banner img{width:100%;height:280px;object-fit:cover;object-position:center 40%;opacity:.55}
-.banner.tall img{height:min(58vh,520px);opacity:.6}
-.banner .copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px;text-shadow:0 1px 12px rgba(0,0,0,.35)}
+.banner img{width:100%;height:360px;object-fit:cover;object-position:center 40%;opacity:.55}
+.banner.tall img{height:min(68vh,600px);min-height:440px;opacity:.6}
+.banner .copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px 0;text-shadow:0 1px 12px rgba(0,0,0,.35)}
 .banner h1{color:#fff}
 .banner .sub{margin-top:8px;font-size:14px;color:rgba(255,255,255,.85);letter-spacing:.02em}
 .banner.tall .sub{font-size:17px;max-width:60ch;margin-top:14px}
@@ -198,7 +211,7 @@ table.list td a{color:var(--navy);font-weight:700}
 .tablewrap{overflow-x:auto}
 
 /* ---------- publications ---------- */
-.toolbar{position:sticky;top:66px;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:8px}
+.toolbar{position:sticky;top:72px;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:8px}
 .toolbar .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .input{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-width:240px;flex:1}
 .input input{border:0;background:none;font:inherit;color:inherit;width:100%;outline:none}
@@ -346,17 +359,24 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 footer .fb{color:#fff;font-weight:700;font-size:15px;letter-spacing:.02em;text-transform:uppercase}
 footer a{color:#fff}
 .note{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.5)}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .rv{opacity:1;transform:none}
+  .person:hover,.fig:hover,.video:hover,.pgrid figure:hover{transform:none}
+}
+@media print{.top{position:static;background:var(--navy-deep)}.top .wrap{height:72px}.banner .copy{padding-top:0}}
 </style>
 
 <header class="top">
   <div class="wrap">
     <a class="brand" href="#/home" id="brand"><img alt="" id="brandlogo"><span><span id="brand-short">MLV Lab</span><small id="brand-name">Machine Learning and Vision Lab</small></span></a>
-    <nav class="tabs" id="tabs"></nav>
+    <nav class="tabs" id="tabs" aria-label="Main navigation"></nav>
     <button class="sbtn" id="searchbtn" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search people, papers…</span><kbd>/</kbd></button>
-    <button class="menu iconbtn" id="menubtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="menu iconbtn" id="menubtn" aria-label="Menu" aria-controls="tabs" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 </header>
-<main id="main"></main>
+<main id="main" tabindex="-1"></main>
 <footer>
   <div class="wrap">
     <div>
@@ -429,29 +449,79 @@ const shortTopic = t => ({1:'AGI & Multimodal QA',2:'AI for Science',3:'Generati
 const topicChip = (id, extra='') => { const t=topicById.get(id); return t ? `<span class="chip t${id} ${extra}">${esc(shortTopic(t))}</span>` : ''; };
 const banner = (key, title, sub, tall=false, extra='') => `<section class="banner ${tall?'tall':''}"><img src="${img(key)}" alt=""><div class="copy"><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}${extra}</div></section>`;
 
+/* ---------- header state ---------- */
+function reducedMotion(){ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function updateHeader(){ document.querySelector('.top').classList.toggle('is-scrolled',window.scrollY>24); }
+function setMenuOpen(open, restoreFocus=false){
+  document.getElementById('tabs').classList.toggle('open',open);
+  document.querySelector('.top').classList.toggle('menu-open',open);
+  const button=document.getElementById('menubtn');
+  button.setAttribute('aria-expanded',String(open));
+  if(restoreFocus) button.focus();
+}
+function onNavClick(event){
+  const link=event.target.closest('a');
+  if(!link) return;
+  const restoreFocus=document.getElementById('tabs').classList.contains('open') && link.hash===location.hash;
+  setMenuOpen(false,restoreFocus);
+}
+
 /* ---------- routing ---------- */
+let __routeVersion = 0, __routeAnimation = null, __targetTimer = null;
 function route(){
+  const navigation = __routeVersion > 0;
+  const version = ++__routeVersion;
+  if(__routeAnimation){ __routeAnimation.cancel(); __routeAnimation=null; }
+  if(__targetTimer!==null){ clearTimeout(__targetTimer); __targetTimer=null; }
+  if(__io){ __io.disconnect(); __io=null; }
   const h = location.hash.replace(/^#\/?/,'') || 'home';
   const [page, qs] = h.split('?'); const q = new URLSearchParams(qs||'');
   const r = RENDER[page] ? page : 'home';
   if(window.__ctimer){ clearInterval(window.__ctimer); window.__ctimer=null; }
-  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('active',a.dataset.p===r));
-  document.getElementById('tabs').classList.remove('open');
+  document.querySelectorAll('nav.tabs a').forEach(a=>{
+    const active = a.dataset.p===r;
+    a.classList.toggle('active',active);
+    if(active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+  });
+  setMenuOpen(false);
   const main = document.getElementById('main');
   main.innerHTML = RENDER[r](q);
   document.title = (r==='home'?'':TABS.find(t=>t[0]===r)[1]+' · ')+S.lab_short;
   window.scrollTo({top:0,behavior:'instant'});
   if(AFTER[r]) AFTER[r](q);
   reveal();
-  if(q.get('t')){ const el=document.getElementById(q.get('t')); if(el) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'start'}),50); }
+  updateHeader();
+  if(navigation){
+    main.focus({preventScroll:true});
+    if(!q.has('t') && !reducedMotion() && typeof main.animate==='function'){
+      __routeAnimation = main.animate([
+        {opacity:0,transform:'translateY(6px)'},
+        {opacity:1,transform:'translateY(0)'},
+      ], {duration:280,easing:'ease-out'});
+    }
+  }
+  if(q.get('t')){
+    __targetTimer = setTimeout(()=>{
+      if(version!==__routeVersion) return;
+      __targetTimer=null;
+      const el=document.getElementById(q.get('t'));
+      if(el){
+        if(__io) __io.unobserve(el);
+        el.classList.remove('rv','in');
+        const toolbar=document.querySelector('.toolbar');
+        el.style.scrollMarginTop=`${92+(toolbar?toolbar.getBoundingClientRect().height:0)}px`;
+        el.scrollIntoView({behavior:reducedMotion()?'instant':'smooth',block:'start'});
+      }
+    },50);
+  }
 }
 
 /* ---------- scroll-reveal: cards/rows fade in as they enter the viewport (once) ---------- */
 const REVEAL_SEL = '.pub, .person, .faculty, .fig, .video, .pgrid figure, .news li, .topic, .teach-year, .card, .collab';
 let __io = null;
 function reveal(){
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
-  if (!__io) __io = new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); __io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+  if (reducedMotion() || !('IntersectionObserver' in window)) return;
+  if (!__io) __io = new IntersectionObserver((es, observer) => { es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); observer.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
   const els = [...document.querySelectorAll(REVEAL_SEL)].filter(el => !el.classList.contains('rv'));
   els.forEach((el, i) => { el.classList.add('rv'); el.style.transitionDelay = (Math.min(i % 12, 8) * 40) + 'ms'; __io.observe(el); });
   // anything already in view gets shown right away (no flash of empty page)
@@ -631,7 +701,7 @@ function renderPubs(){
   const pc = document.getElementById('pclear'); if(pc) pc.onclick=()=>{ PF.author=null; PF.topic=null; history.replaceState(null,'','#/publications'); renderPubs(); };
   reveal();
   document.querySelectorAll('#plist [data-fig]').forEach(b=>b.onclick=()=>{ const p=D.pubs.find(x=>x.id===+b.dataset.fig); openLightbox([{img:p.thumb, caption:p.title}], 0); });
-  document.querySelectorAll('#plist .m').forEach(b=>b.onclick=()=>{ PF.author = PF.author===+b.dataset.a ? null : +b.dataset.a; history.replaceState(null,'','#/publications'+(PF.author?'?author='+PF.author:'')); renderPubs(); window.scrollTo({top:0,behavior:'smooth'}); });
+  document.querySelectorAll('#plist .m').forEach(b=>b.onclick=()=>{ PF.author = PF.author===+b.dataset.a ? null : +b.dataset.a; history.replaceState(null,'','#/publications'+(PF.author?'?author='+PF.author:'')); renderPubs(); window.scrollTo({top:0,behavior:reducedMotion()?'instant':'smooth'}); });
 }
 function pubsAfter(){
   document.getElementById('pq').oninput = e=>{ PF.q=e.target.value; renderPubs(); };
@@ -785,8 +855,15 @@ document.getElementById('fthome').textContent = S.lab_short;
 document.getElementById('gen').textContent = D.generated;
 document.getElementById('ftscholar').href = S.scholar;
 document.getElementById('searchbtn').onclick = openSearch;
-document.getElementById('menubtn').onclick = ()=>document.getElementById('tabs').classList.toggle('open');
-document.addEventListener('keydown',e=>{ if(e.key==='/' && !/input|textarea/i.test(document.activeElement.tagName)){ e.preventDefault(); openSearch(); } });
+document.getElementById('menubtn').onclick = ()=>setMenuOpen(!document.getElementById('tabs').classList.contains('open'));
+document.getElementById('tabs').addEventListener('click',onNavClick);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && document.getElementById('tabs').classList.contains('open')){ setMenuOpen(false,true); }
+  if(e.key==='/' && !/input|textarea/i.test(document.activeElement.tagName)){ e.preventDefault(); openSearch(); }
+});
+document.addEventListener('click',e=>{ if(!e.target.closest('.top') && document.getElementById('tabs').classList.contains('open')) setMenuOpen(false); });
+window.addEventListener('scroll',updateHeader,{passive:true});
+window.addEventListener('resize',()=>{ if(window.innerWidth>1120) setMenuOpen(false); });
 window.addEventListener('hashchange', route);
 route();
 </script>
