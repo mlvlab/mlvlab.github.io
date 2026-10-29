@@ -59,6 +59,8 @@ News DB에 **`Display text`**라는 열을 추가하고 유형을 **텍스트(Te
 - 제목 속성에서 글자 색을 지정할 수 없다면 `Display text`를 사용합니다. 일반 텍스트로 작성하고 Notion의 서식 도구를 사용하며, HTML이나 색상 코드를 입력하지 않습니다.
 - 기존 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`도 문장 뒤에 계속 붙습니다.
 
+현재 예외: 2026-09-26 NeurIPS 2026 합격 소식의 `Seven`은 홈페이지에서 파란색·굵게 표시합니다. 연구실 Notion 연결에 직접 접근할 수 없어 `template.html`의 `newsDisplaySegments`에서 해당 날짜와 전체 문장이 정확히 일치할 때만 적용합니다. 나머지 단어의 서식은 유지하며, 이 단어까지 Notion에서만 관리하려면 해당 예외를 제거하면 됩니다.
+
 ### 논문 협업 기관 색 자동 표시
 
 Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣고 **굵게** 표시합니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 쉼표, 부서 이름, 나머지 문장은 유지합니다.

@@ -616,9 +616,27 @@ function newsHref(value){
   if(/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^(https?:\/\/|mailto:)/i.test(href)) return '';
   return href;
 }
+function newsDisplaySegments(n){
+  const segments = Array.isArray(n.segments) && n.segments.length ? n.segments : null;
+  const text = segments ? segments.map(s=>typeof s?.text === 'string' ? s.text : '').join('') : n.md;
+  // Requested presentation override while the lab's Notion connection is unavailable.
+  // Match this announcement exactly; preserve all other source text, links and styles.
+  if(n.date !== '2026-09-26' || text !== 'Seven papers (5 main, 1 eval&dataset track, 1 workshop) got accepted at NeurIPS 2026. Congrats to all the coauthors!') return segments;
+  let remaining = 'Seven'.length;
+  return (segments || [{text, bold:false, color:'default', href:''}]).flatMap(segment=>{
+    if(!remaining || typeof segment?.text !== 'string') return [segment];
+    const count = Math.min(remaining, segment.text.length);
+    remaining -= count;
+    return [
+      {...segment, text:segment.text.slice(0,count), bold:true, color:'blue'},
+      ...(count < segment.text.length ? [{...segment, text:segment.text.slice(count)}] : []),
+    ];
+  });
+}
 function newsText(n){
-  if(!Array.isArray(n.segments) || !n.segments.length) return md(n.md).replace(/^<p>|<\/p>$/g,'');
-  return n.segments.map(segment=>{
+  const segments = newsDisplaySegments(n);
+  if(!segments) return md(n.md).replace(/^<p>|<\/p>$/g,'');
+  return segments.map(segment=>{
     if(!segment || typeof segment.text !== 'string') return '';
     let text = esc(segment.text).replace(/\r\n?|\n/g,'<br>');
     if(segment.bold === true) text = `<strong>${text}</strong>`;

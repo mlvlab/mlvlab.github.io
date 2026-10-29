@@ -261,6 +261,28 @@ test('News segments render native color, bold, links, line breaks and appended l
   assert.doesNotMatch(output, /Legacy search text|>NEW</);
 });
 
+test('NeurIPS announcement emphasizes only Seven without mutating source styles or links', () => {
+  const {context} = setup();
+  const sentence = 'Seven papers (5 main, 1 eval&dataset track, 1 workshop) got accepted at NeurIPS 2026. Congrats to all the coauthors!';
+  context.news = {date: '2026-09-26', md: sentence, segments: [
+    {text: 'Seven papers', bold: false, color: 'red', href: '/announcement'},
+    {text: sentence.slice(12), bold: false, color: 'default', href: ''},
+  ]};
+  const before = JSON.stringify(context.news);
+  const output = vm.runInContext('newsText(news)', context);
+  assert.match(output, /<a href="\/announcement"><span class="notion-color-blue"><strong>Seven<\/strong><\/span><\/a>/);
+  assert.match(output, /<a href="\/announcement"><span class="notion-color-red"> papers<\/span><\/a>/);
+  assert.equal(output.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&'), sentence);
+  assert.equal(JSON.stringify(context.news), before);
+  context.news.date = '2025-09-26';
+  assert.doesNotMatch(vm.runInContext('newsText(news)', context), /<strong>|notion-color-blue/);
+  context.news.date = '2026-09-26';
+  context.news.segments[1].text = ' accepted elsewhere.';
+  assert.doesNotMatch(vm.runInContext('newsText(news)', context), /<strong>|notion-color-blue/);
+  context.news = {date: '2026-09-26', md: sentence};
+  assert.match(vm.runInContext('newsText(news)', context), /^<span class="notion-color-blue"><strong>Seven<\/strong><\/span> papers/);
+});
+
 test('News preserves existing Markdown rendering for old snapshots and empty segments', () => {
   const {context} = setup({site: {home_new_count: 0}});
   for (const segments of [undefined, [], null]) {
