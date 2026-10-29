@@ -4,7 +4,7 @@
 
 - 사이트: [mlvlab.github.io](https://mlvlab.github.io/)
 - 저장소: [mlvlab/mlvlab.github.io](https://github.com/mlvlab/mlvlab.github.io)
-- Notion: [MLV Lab homepage DB](https://app.notion.com/p/MLV-Lab-homepage-DB-3cf341ce261380569133f0248ce2c8af)
+- Notion: [MLV Lab homepage DB](https://app.notion.com/p/mlvku/MLV-Lab-homepage-DB-3ff587eaf1a280eea5a6dcd3e8f61afe)
 
 ```text
 Notion DB → fetch_notion.py → build/ 데이터 + site/img/ 이미지
@@ -47,12 +47,44 @@ Publications에 새 행을 만들고 다음 항목을 입력합니다.
 - Research 페이지의 **Representative papers**에는 Topics DB의 `Related Publications` 관계로 추가합니다. Publications의 `Research Topics`만 설정하는 것은 주제 필터 연결입니다.
 - `Presentation`에 Gold Star, Spotlight, Oral, Highlight가 있으면 해당 배지가 표시됩니다. 별도의 `Highlight` 체크박스는 현재 화면에서 사용하지 않습니다.
 
+## 글자 색으로 강조하기
+
+### News에서 특정 단어 강조
+
+News DB에 **`Display text`**라는 열을 추가하고 유형을 **텍스트(Text)**로 선택합니다. 해당 소식의 전체 문장을 이 칸에 넣은 뒤 강조할 단어만 선택해 Notion의 글자 색이나 굵게를 지정합니다. 예를 들어 `Seven papers …`를 넣고 `Seven`에 파란색과 굵게를 적용합니다. Notion의 텍스트 속성은 서식을 지원하고, API에는 글자별 색과 굵기 정보가 포함됩니다. ([텍스트 속성 안내](https://www.notion.com/help/database-properties), [서식 데이터 안내](https://developers.notion.com/reference/rich-text))
+
+- `Display text`에 내용이 있으면 홈페이지와 검색에 이 문장을 사용합니다. 관리용 `News title`은 그대로 두어도 됩니다.
+- `Display text`가 없거나 비어 있으면 기존 `News title`을 사용합니다. 기존 소식 전체를 옮길 필요는 없습니다.
+- 기본 글자 색, 굵게, 링크, 배경색을 지원합니다. 홈페이지의 가독성에 맞춘 색조로 표시하므로 Notion과 픽셀 단위로 같지는 않습니다.
+- 제목 속성에서 글자 색을 지정할 수 없다면 `Display text`를 사용합니다. 일반 텍스트로 작성하고 Notion의 서식 도구를 사용하며, HTML이나 색상 코드를 입력하지 않습니다.
+- 기존 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`도 문장 뒤에 계속 붙습니다.
+
+### 논문 협업 기관 색 자동 표시
+
+Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣습니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 쉼표, 부서 이름, 나머지 문장은 유지합니다.
+
+| 기관 | 표시 방식 | 인식 예시 |
+|---|---|---|
+| Google | 글자별 파랑·빨강·금색·초록, Cloud AI는 진한 회색 | `Google`, `Google Cloud AI` |
+| Microsoft | 글자 묶음별 주황·초록·파랑·금색 | `Microsoft` |
+| Amazon | 진한 주황색 | `Amazon`, `Amazon Inc`, `Amazon AGI team` |
+| Wisconsin–Madison | 빨간색 | `University of Wisconsin-Madison`, `Univ. of Wisconsin-Madison`, `Wisconsin-Madison`, `UW-Madison` |
+| Meta / UNIST | 파란색 / 남색 | `Meta`, `UNIST` |
+| Korea University | 짙은 빨간색 | `Korea Univ.`, `Korea University` |
+| TwelveLabs / Adobe | 진한 회색 / 빨간색 | `TwelveLabs`, `Adobe` |
+| Seoul National University | 파란색 | `Seoul National Univ.`, `Seoul National University` |
+| Snapchat | 금색 | `Snapchat` |
+
+대소문자와 일반 하이픈/긴 대시 표기를 인식합니다. 기관 색은 **협업 기관 줄에만** 적용하며 논문 제목이나 저자 이름의 색은 바꾸지 않습니다. 다른 기관은 기본 색을 유지합니다. 기존 홈페이지의 기관별 색 조합을 따르되 밝은 색은 작은 글씨도 읽을 수 있도록 진하게 조정합니다. Wisconsin–Madison은 [공식 Badger Red](https://brand.wisc.edu/visual-identity/colors/)를 사용합니다. 추가 기관이나 색상 변경은 `template.html`의 기관 목록과 색 스타일에서 관리합니다.
+
+이 기능을 포함한 코드가 배포된 뒤에는 Notion을 수정하고 기존과 같이 **Build site from Notion and deploy → Run workflow**를 실행하면 됩니다. 토큰이나 connection을 다시 설정할 필요는 없습니다.
+
 ## 다른 DB의 주요 필드
 
 | DB | 주요 열과 운영 방법 |
 |---|---|
 | People | `Name`, `Korean Name`, `Group`, `Status`, `Position`, `Email`, `Tel`, `Google Scholar`, `Homepage`, `CV`, `Research Interests`, `Photo File`. 졸업생은 `Graduated`, `After Graduation`도 사용 |
-| News | `News title`, `Date`, 선택적으로 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 날짜가 최신인 소식부터 표시하고 같은 날짜는 Order가 큰 순서 |
+| News | `News title`, `Date`, 서식이 필요한 소식은 선택적으로 `Display text`, 추가 링크는 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 날짜가 최신인 소식부터 표시하고 같은 날짜는 Order가 큰 순서 |
 | Topics | `Topic`, `Description`, `Related Publications` |
 | Figures | `Caption`, `Image File`, `Topic`, 선택적으로 `Publication`. Topic·Publication 관계는 각각 첫 번째 항목만 사용 |
 | Teaching | `Semester`, `Year`, `Term`, `Course`, `Code`, `Note`, `Institution`. 연도 내림차순, 같은 해는 Fall 먼저, 다음 Course 이름순 |

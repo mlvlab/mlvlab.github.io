@@ -162,6 +162,49 @@ def prop(props, *names, default=''):
         if t == 'formula': return p['formula'].get(p['formula']['type'], '')
     return default
 
+NOTION_TEXT_COLORS = ('gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red')
+NOTION_COLORS = frozenset(('default',) + NOTION_TEXT_COLORS + tuple(c + '_background' for c in NOTION_TEXT_COLORS))
+
+def news_segments(arr):
+    """News-only rich text; generic rich()/prop() keep their existing behavior."""
+    segments = []
+    for part in arr or []:
+        annotations = part.get('annotations') or {}
+        color = annotations.get('color', 'default')
+        if not isinstance(color, str) or color not in NOTION_COLORS: color = 'default'
+        segments.append({'text': part.get('plain_text', ''), 'bold': annotations.get('bold') is True,
+                         'color': color, 'href': part.get('href') or ''})
+    return segments
+
+def news_content(props):
+    """Keep searchable Markdown, adding structured text only for native formatting."""
+    display = props.get('Display text') or {}
+    if display.get('type') == 'rich_text' and plain(props, 'Display text').strip():
+        name = 'Display text'
+    else:
+        name = next((n for n in ('News title', 'Title', 'News') if props.get(n) is not None), 'News title')
+    source = props.get(name) or {}
+    parts = source.get(source.get('type'), []) if source.get('type') in ('title', 'rich_text') else []
+    segments = news_segments(parts)
+    formatted = any(s['bold'] or s['color'] != 'default' or s['href'] for s in segments)
+    md = rich(parts) if formatted else prop(props, name)
+    for k in (1, 2, 3):
+        url = prop(props, f'Link {k}')
+        if not url: continue
+        label_name = f'Link Label {k}'
+        md += f' [{prop(props, label_name) or "Link"}]({url})'
+        label = props.get(label_name) or {}
+        label_parts = label.get(label.get('type'), []) if label.get('type') in ('title', 'rich_text') else []
+        label_segments = news_segments(label_parts) if plain(props, label_name) else []
+        if not label_segments:
+            label_segments = [{'text': plain(props, label_name) or 'Link', 'bold': False,
+                               'color': 'default', 'href': ''}]
+        # Labels can be the only formatted content; retain earlier links if a later label activates this path.
+        formatted = formatted or any(s['bold'] or s['color'] != 'default' for s in label_segments)
+        segments.append({'text': ' ', 'bold': False, 'color': 'default', 'href': ''})
+        segments.extend({**segment, 'href': url} for segment in label_segments)
+    return {'md': md, **({'segments': segments} if formatted else {})}
+
 def body_markdown(page_id):
     """Page body → simple markdown (headings, paragraphs, bullets)."""
     lines = []
@@ -459,13 +502,8 @@ def main():
     # ---- News
     news = []
     for r in sort_rows(visible(query_all(ds['news'])), desc=True):
-        p = r['properties']; md = prop(p, 'News title', 'Title', 'News')
-        extras = []
-        for k in (1, 2, 3):
-            u = prop(p, f'Link {k}'); lab = prop(p, f'Link Label {k}') or 'Link'
-            if u: extras.append(f'[{lab}]({u})')
-        if extras: md += ' ' + ' '.join(extras)
-        news.append({'date': prop(p, 'Date'), 'md': md, 'new': bool(prop(p, 'New', default=False))})
+        p = r['properties']
+        news.append({'date': prop(p, 'Date'), **news_content(p), 'new': bool(prop(p, 'New', default=False))})
     news.sort(key=lambda n: n['date'], reverse=True)
 
     # ---- Teaching

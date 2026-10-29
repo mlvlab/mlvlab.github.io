@@ -133,6 +133,179 @@ class ImageFallbackTests(unittest.TestCase):
         return json.loads((self.root / 'build' / 'site_data.json').read_text()), \
             json.loads((self.root / 'build' / 'assets.json').read_text())
 
+    def test_news_display_text_preserves_native_formatting_and_all_extra_links(self):
+        module = self.load()
+        row = self.row('news-row', **{'News title': 'Original title', 'Date': '2026-10-29',
+                                    'Link 1': 'https://example.org/paper', 'Link Label 1': 'Paper',
+                                    'Link 2': 'mailto:lab@example.org', 'Link Label 2': 'Contact',
+                                    'Link 3': '/details'})
+        row['properties']['Display text'] = {'type': 'rich_text', 'rich_text': [
+            {'plain_text': 'Seven', 'annotations': {'bold': True, 'color': 'red'},
+             'href': 'https://example.org/news'},
+            {'plain_text': ' papers accepted.', 'annotations': {'bold': False, 'color': 'default'},
+             'href': None},
+        ]}
+        data, _ = self.run_main(module, {'news': [row]})
+        news = data['news'][0]
+        self.assertEqual(news['md'], '[**Seven**](https://example.org/news) papers accepted. '
+                         '[Paper](https://example.org/paper) [Contact](mailto:lab@example.org) [Link](/details)')
+        self.assertEqual(news.get('segments'), [
+            {'text': 'Seven', 'bold': True, 'color': 'red', 'href': 'https://example.org/news'},
+            {'text': ' papers accepted.', 'bold': False, 'color': 'default', 'href': ''},
+            {'text': ' ', 'bold': False, 'color': 'default', 'href': ''},
+            {'text': 'Paper', 'bold': False, 'color': 'default', 'href': 'https://example.org/paper'},
+            {'text': ' ', 'bold': False, 'color': 'default', 'href': ''},
+            {'text': 'Contact', 'bold': False, 'color': 'default', 'href': 'mailto:lab@example.org'},
+            {'text': ' ', 'bold': False, 'color': 'default', 'href': ''},
+            {'text': 'Link', 'bold': False, 'color': 'default', 'href': '/details'},
+        ])
+
+    def test_news_native_title_formatting_works_for_each_existing_alias(self):
+        module = self.load()
+        for name in ('News title', 'Title', 'News'):
+            with self.subTest(name=name):
+                row = self.row('news-row')
+                row['properties'][name] = {'type': 'title', 'title': [
+                    {'plain_text': 'Seven', 'annotations': {'bold': True, 'color': 'blue'},
+                     'href': 'https://example.org/news'},
+                ]}
+                data, _ = self.run_main(module, {'news': [row]})
+                self.assertEqual(data['news'][0].get('segments'), [
+                    {'text': 'Seven', 'bold': True, 'color': 'blue', 'href': 'https://example.org/news'},
+                ])
+
+    def test_news_missing_empty_and_whitespace_display_text_fall_back_to_title(self):
+        module = self.load()
+        for display in (None, [], [{'plain_text': ''}],
+                        [{'plain_text': ' \n ', 'annotations': {'bold': True, 'color': 'red'}}]):
+            with self.subTest(display=display):
+                row = self.row('news-row', **{'News title': 'Existing **bold** [link](/paper)'})
+                if display is not None:
+                    row['properties']['Display text'] = {'type': 'rich_text', 'rich_text': display}
+                data, _ = self.run_main(module, {'news': [row]})
+                self.assertEqual(data['news'][0]['md'], 'Existing **bold** [link](/paper)')
+                self.assertNotIn('segments', data['news'][0])
+
+    def test_plain_display_text_keeps_markdown_and_does_not_add_segments(self):
+        module = self.load()
+        row = self.row('news-row', **{'News title': 'Old title',
+                                    'Display text': '**Seven** papers [accepted](/news)',
+                                    'Link 1': '/paper', 'Link Label 1': 'Paper'})
+        data, _ = self.run_main(module, {'news': [row]})
+        self.assertEqual(data['news'][0]['md'], '**Seven** papers [accepted](/news) [Paper](/paper)')
+        self.assertNotIn('segments', data['news'][0])
+
+    def test_news_native_link_alone_creates_segments(self):
+        module = self.load()
+        row = self.row('news-row')
+        row['properties']['News title'] = {'type': 'title', 'title': [
+            {'plain_text': 'Read the news', 'annotations': {'bold': False, 'color': 'default'},
+             'href': 'https://example.org/news'},
+        ]}
+        data, _ = self.run_main(module, {'news': [row]})
+        self.assertEqual(data['news'][0].get('segments'), [
+            {'text': 'Read the news', 'bold': False, 'color': 'default',
+             'href': 'https://example.org/news'},
+        ])
+
+    def test_news_native_bold_or_color_alone_creates_segments(self):
+        module = self.load()
+        for annotations in ({'bold': True, 'color': 'default'}, {'bold': False, 'color': 'green'},
+                            {'bold': False, 'color': 'yellow_background'}):
+            with self.subTest(annotations=annotations):
+                row = self.row('news-row')
+                row['properties']['Display text'] = {'type': 'rich_text', 'rich_text': [
+                    {'plain_text': 'Seven', 'annotations': annotations},
+                ]}
+                data, _ = self.run_main(module, {'news': [row]})
+                self.assertEqual(data['news'][0].get('segments'), [
+                    {'text': 'Seven', 'bold': annotations['bold'], 'color': annotations['color'], 'href': ''},
+                ])
+
+    def test_news_extra_link_labels_keep_native_color_and_bold(self):
+        module = self.load()
+        row = self.row('news-row', **{'News title': 'Seven', 'Link 1': '/news'})
+        row['properties']['Display text'] = {'type': 'rich_text', 'rich_text': [
+            {'plain_text': 'Seven', 'annotations': {'bold': True}},
+        ]}
+        row['properties']['Link Label 1'] = {'type': 'rich_text', 'rich_text': [
+            {'plain_text': 'More', 'annotations': {'bold': True, 'color': 'green'}},
+        ]}
+        data, _ = self.run_main(module, {'news': [row]})
+        self.assertEqual(data['news'][0]['md'], '**Seven** [**More**](/news)')
+        self.assertEqual(data['news'][0].get('segments', [])[-1:], [
+            {'text': 'More', 'bold': True, 'color': 'green', 'href': '/news'},
+        ])
+
+    def test_news_label_only_formatting_activates_segments_and_preserves_all_links(self):
+        module = self.load()
+        cases = [
+            (1, 'Paper', 'Seven papers accepted. [**Paper**](/paper) [Project](/project) [Code](/code)'),
+            (2, 'Project', 'Seven papers accepted. [Paper](/paper) [**Project**](/project) [Code](/code)'),
+            (3, 'Code', 'Seven papers accepted. [Paper](/paper) [Project](/project) [**Code**](/code)'),
+        ]
+        for slot, label, bold_md in cases:
+            for annotations in ({'bold': True, 'color': 'default'}, {'bold': False, 'color': 'green'},
+                                {'bold': False, 'color': 'yellow_background'}):
+                with self.subTest(slot=slot, annotations=annotations):
+                    row = self.row('news-row', **{
+                        'News title': 'Seven papers accepted.',
+                        'Link 1': '/paper', 'Link Label 1': 'Paper',
+                        'Link 2': '/project', 'Link Label 2': 'Project',
+                        'Link 3': '/code', 'Link Label 3': 'Code',
+                    })
+                    row['properties'][f'Link Label {slot}'] = {'type': 'rich_text', 'rich_text': [
+                        {'plain_text': label, 'annotations': annotations},
+                    ]}
+                    data, _ = self.run_main(module, {'news': [row]})
+                    news = data['news'][0]
+                    self.assertIn('segments', news)
+                    segments = news['segments']
+                    self.assertEqual(''.join(part['text'] for part in segments),
+                                     'Seven papers accepted. Paper Project Code')
+                    links = [part for part in segments if part['href']]
+                    self.assertEqual([part['href'] for part in links], ['/paper', '/project', '/code'])
+                    self.assertEqual(links[slot - 1]['color'], annotations['color'])
+                    self.assertEqual(links[slot - 1]['bold'], annotations['bold'])
+                    self.assertEqual(news['md'], bold_md if annotations['bold'] else
+                                     'Seven papers accepted. [Paper](/paper) [Project](/project) [Code](/code)')
+
+    def test_news_formatted_labels_without_links_do_not_activate_segments(self):
+        module = self.load()
+        row = self.row('news-row', **{'News title': 'Existing **bold** [link](/paper)'})
+        for slot in (1, 2, 3):
+            row['properties'][f'Link Label {slot}'] = {'type': 'rich_text', 'rich_text': [
+                {'plain_text': 'Unused label', 'annotations': {'bold': True, 'color': 'green'}},
+            ]}
+        data, _ = self.run_main(module, {'news': [row]})
+        self.assertEqual(data['news'][0]['md'], 'Existing **bold** [link](/paper)')
+        self.assertNotIn('segments', data['news'][0])
+
+    def test_news_color_names_are_fixed_and_malformed_values_fall_back_safely(self):
+        module = self.load()
+        colors = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red',
+                  'gray_background', 'brown_background', 'orange_background', 'yellow_background',
+                  'green_background', 'blue_background', 'purple_background', 'pink_background', 'red_background']
+        bad_colors = ['red\" onclick=\"evil()', 'rebeccapurple', None, {}, []]
+        row = self.row('news-row')
+        row['properties']['Display text'] = {'type': 'rich_text', 'rich_text': [
+            {'plain_text': str(index), 'annotations': {'color': color, 'bold': True}}
+            for index, color in enumerate(colors + bad_colors)
+        ]}
+        data, _ = self.run_main(module, {'news': [row]})
+        segments = data['news'][0].get('segments', [])
+        self.assertEqual([segment['color'] for segment in segments], colors + ['default'] * len(bad_colors))
+
+    def test_news_does_not_change_generic_rich_and_prop_behavior(self):
+        module = self.load()
+        parts = [{'plain_text': 'Seven', 'annotations': {'bold': True, 'color': 'red'},
+                  'href': 'https://example.org/news'}]
+        self.assertEqual(module.rich(parts), '[**Seven**](https://example.org/news)')
+        self.assertEqual(module.prop({'Title': {'type': 'title', 'title': parts}}, 'Title'),
+                         '[Seven](https://example.org/news)')
+        self.assertEqual(module.prop({'Text': {'type': 'rich_text', 'rich_text': parts}}, 'Text'),
+                         '[**Seven**](https://example.org/news)')
+
     def test_main_preserves_row_ids_and_shared_publication_alias_in_backup_metadata(self):
         module = self.load({'person:5': 'person.png', 'photo:5': 'photo.png',
                             'slide:5': 'slide.png', 'fig:5:0': 'figure.png'},

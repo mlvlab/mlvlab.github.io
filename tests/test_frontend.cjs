@@ -241,6 +241,180 @@ test('positive NEW count limits badges to the newest items', () => {
   assert.doesNotMatch(output, /Third<span/);
 });
 
+test('News segments render native color, bold, links, line breaks and appended links', () => {
+  const {context} = setup({site: {home_new_count: 0}});
+  context.news = {date: '2026-10-29', md: 'Legacy search text', segments: [
+    {text: 'Seven', bold: true, color: 'red', href: 'https://example.org/news'},
+    {text: ' papers accepted.\n', bold: false, color: 'default', href: ''},
+    {text: 'Paper', bold: false, color: 'blue_background', href: '/paper'},
+    {text: ' Contact', bold: false, color: 'default', href: 'mailto:lab@example.org'},
+    {text: ' Details', bold: false, color: 'default', href: '#/news'},
+  ]};
+  const output = vm.runInContext('newsRow(news, 0)', context);
+  assert.match(output, /<span class="notion-color-red"><strong>Seven<\/strong><\/span>/);
+  assert.match(output, /href="https:\/\/example.org\/news"/);
+  assert.match(output, /papers accepted\.<br>/);
+  assert.match(output, /notion-color-blue_background/);
+  assert.match(output, /href="\/paper"/);
+  assert.match(output, /href="mailto:lab@example.org"/);
+  assert.match(output, /href="#\/news"/);
+  assert.doesNotMatch(output, /Legacy search text|>NEW</);
+});
+
+test('News preserves existing Markdown rendering for old snapshots and empty segments', () => {
+  const {context} = setup({site: {home_new_count: 0}});
+  for (const segments of [undefined, [], null]) {
+    context.news = {date: '2026-10-29', md: '**Seven** papers [accepted](/news)\nNext line', segments};
+    assert.equal(vm.runInContext('newsRow(news, 0)', context),
+      '<li><time>2026-10-29</time><p><strong>Seven</strong> papers <a href="/news" target="_blank" rel="noopener">accepted</a><br>Next line</p></li>');
+  }
+});
+
+test('News allows only safe structured hrefs and escapes their attribute contents', () => {
+  const {context} = setup({site: {home_new_count: 0}});
+  const safe = ['https://example.org/a?x=1&y=2', 'HTTP://example.org', 'mailto:lab@example.org',
+    '/news', './news', '../news', 'news/paper', '#/news', '?year=2026',
+    'https://example.org/\" onmouseover=\"evil()'];
+  const unsafe = ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,<script>evil()</script>',
+    'vbscript:evil()', 'file:///etc/passwd', '//evil.example/path', '\\\\evil.example', '/\\evil.example',
+    'java\nscript:alert(1)', '\u0000javascript:evil()', 'https://example.org/\u0001',
+    {href: 'https://example.org'}];
+  for (const href of safe) {
+    context.news = {date: '', md: '', segments: [{text: 'Link', bold: false, color: 'default', href}]};
+    const output = vm.runInContext('newsRow(news, 0)', context);
+    assert.match(output, /<a href="/, String(href));
+    assert.doesNotMatch(output, /" onmouseover="/);
+    if (href.includes('&')) assert.match(output, /x=1&amp;y=2/);
+  }
+  for (const href of unsafe) {
+    context.news = {date: '', md: '', segments: [{text: 'Link', bold: false, color: 'default', href}]};
+    const output = vm.runInContext('newsRow(news, 0)', context);
+    assert.match(output, />Link</, String(href));
+    assert.doesNotMatch(output, /<a\b/, String(href));
+  }
+});
+
+test('News escapes markup and ignores injected or malformed color and bold values', () => {
+  const {context} = setup({site: {home_new_count: 0}});
+  context.news = {date: '2026-10-29', md: '', segments: [
+    {text: '<img src=x onerror="evil()"> & text', bold: true,
+      color: 'red\" style=\"color:transparent', href: 'javascript:evil()'},
+    {text: 'plain', bold: 'false', color: {value: 'red'}, href: ''},
+  ]};
+  const output = vm.runInContext('newsRow(news, 0)', context);
+  assert.match(output, /<strong>&lt;img src=x onerror=&quot;evil\(\)&quot;&gt; &amp; text<\/strong>/);
+  assert.doesNotMatch(output, /<img|style=|<a\b|<strong>plain|notion-color-\[object/);
+});
+
+test('News renders every supported Notion text and background color through a fixed class', () => {
+  const {context} = setup({site: {home_new_count: 0}});
+  const names = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
+  for (const color of [...names, ...names.map(name => name + '_background')]) {
+    context.news = {date: '', md: '', segments: [{text: 'Color', bold: false, color, href: ''}]};
+    const output = vm.runInContext('newsRow(news, 0)', context);
+    assert.match(output, new RegExp(`<span class="notion-color-${color}">Color</span>`));
+    const rule = template.match(new RegExp(`\\.news \\.notion-color-${color}\\{([^}]+)\\}`));
+    assert.ok(rule, `Rendered color ${color} needs a stylesheet rule`);
+    assert.match(rule[1], color.endsWith('_background') ? /background:/ : /color:/);
+  }
+});
+
+test('Collaboration colors mixed institution names while preserving source text and separators', () => {
+  const {context} = setup();
+  const collab = 'Google / MICROSOFT, Amazon & University of Wisconsin–Madison';
+  context.paper = {...snapshot.pubs[0], collab};
+  const output = vm.runInContext('pubRow(paper)', context);
+  const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
+  assert.match(line, /class="collab-name collab-google"/);
+  assert.match(line, /class="collab-name collab-microsoft"/);
+  assert.match(line, /class="collab-name collab-amazon">Amazon<\/span>/);
+  assert.match(line, /class="collab-name collab-wisconsin">University of Wisconsin–Madison<\/span>/);
+  assert.equal(line.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&'), collab);
+});
+
+test('Google and Microsoft have multiple text colors and an accessible full-word name', () => {
+  const {context} = setup();
+  for (const [word, groups] of [['Google', ['G', 'o', 'o', 'g', 'l', 'e']],
+                               ['MICROSOFT', ['MIC', 'RO', 'SO', 'FT']]]) {
+    context.paper = {...snapshot.pubs[0], collab: word};
+    const output = vm.runInContext('pubRow(paper)', context);
+    const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
+    assert.ok(line.includes(`aria-label="${word}"`), 'Assistive technology needs the unsplit source name');
+    assert.match(line, /role="img"/);
+    const coloredParts = [...line.matchAll(/<span class="([^\"]+)">([^<]+)<\/span>/g)];
+    assert.deepEqual(coloredParts.map(part => part[2]), groups);
+    assert.equal(new Set(coloredParts.map(part => part[1])).size, 4);
+    if (word === 'Google') {
+      assert.equal(coloredParts[0][1], coloredParts[3][1]);
+      assert.equal(coloredParts[1][1], coloredParts[5][1]);
+    }
+    assert.equal(line.replace(/<[^>]*>/g, ''), word);
+  }
+});
+
+test('Collaboration colors the institutions and complete phrases from the prior-site examples', () => {
+  const {context} = setup();
+  const cases = [
+    ['Meta', 'meta'], ['UNIST', 'unist'], ['Korea Univ.', 'korea'], ['Korea University', 'korea'],
+    ['TwelveLabs', 'twelvelabs'], ['Adobe', 'adobe'], ['Seoul National Univ.', 'seoul'],
+    ['Seoul National University', 'seoul'], ['Snapchat', 'snapchat'],
+    ['Amazon AGI team', 'amazon'], ['Amazon Inc', 'amazon'],
+  ];
+  context.paper = {...snapshot.pubs[0], collab: cases.map(([name]) => name).join(' / ')};
+  const output = vm.runInContext('pubRow(paper)', context);
+  for (const [name, color] of cases) {
+    assert.ok(output.includes(`class="collab-name collab-${color}">${name}</span>`), name);
+  }
+  context.paper = {...snapshot.pubs[0], collab: 'Google Cloud AI'};
+  const google = vm.runInContext('pubRow(paper)', context);
+  assert.match(google, /class="collab-name collab-charcoal"> Cloud AI<\/span>/);
+  const line = google.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
+  assert.equal(line.replace(/<[^>]*>/g, ''), 'Google Cloud AI');
+});
+
+test('Collaboration recognizes Wisconsin aliases and avoids unrelated word substrings', () => {
+  const {context} = setup();
+  const aliases = ['University of Wisconsin-Madison', 'University of Wisconsin–Madison',
+    'Univ. of Wisconsin-Madison', 'Univ. of Wisconsin–Madison', 'Wisconsin-Madison',
+    'Wisconsin–Madison', 'UW-Madison', 'uw–madison'];
+  context.paper = {...snapshot.pubs[0], collab: aliases.join('; ')};
+  const output = vm.runInContext('pubRow(paper)', context);
+  assert.equal((output.match(/class="collab-name collab-wisconsin"/g) || []).length, aliases.length);
+  for (const alias of aliases) assert.ok(output.includes('>' + alias + '</span>'), alias);
+  context.paper = {...snapshot.pubs[0], collab: 'Googleplex Microsoft365 Amazonia XUW-Madison UW-Madisonian _Google Google_ éAmazon Amazoné 한국Google Google한국 Metadata UNISTed Korea Universitypress TwelveLabsX AdobeX Snapchatters'};
+  assert.doesNotMatch(vm.runInContext('pubRow(paper)', context), /class="collab-name/);
+});
+
+test('Collaboration escapes HTML and applies colors only to collaboration text', () => {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs[0], title: 'Google Microsoft Amazon UW-Madison',
+    authors: 'Google, Amazon', venue: 'Microsoft', note: 'UW-Madison',
+    collab: '<img alt="Google" src=x onerror="evil()"> Amazon & Other Lab'};
+  const output = vm.runInContext('pubRow(paper)', context);
+  const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
+  assert.match(line, /&lt;img alt=&quot;Google&quot; src=x onerror=&quot;evil\(\)&quot;&gt;/);
+  assert.match(line, /class="collab-name collab-amazon">Amazon<\/span> &amp; Other Lab/);
+  assert.doesNotMatch(output.replace(/<div class="note">Collaboration with [\s\S]*?<\/div>/, ''), /class="collab-name/);
+  assert.doesNotMatch(line, /<img|collab-google/);
+});
+
+test('Collaboration institution colors meet 4.5 to 1 contrast on white', () => {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs[0], collab: 'Google Cloud AI Microsoft Amazon UW-Madison Meta UNIST Korea Univ. TwelveLabs Adobe Seoul National Univ. Snapchat'};
+  const output = vm.runInContext('pubRow(paper)', context);
+  const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
+  const names = [...line.matchAll(/<span class="(?:collab-name )?(collab-[a-z-]+)">[^<]+<\/span>/g)].map(match => match[1]);
+  assert.ok(names.length >= 20, 'Every single-color name and multicolor group should receive a color');
+  for (const name of names) {
+    const rule = template.match(new RegExp(`\\.pub \\.${name}\\{color:(#[0-9a-f]{6})\\}`, 'i'));
+    assert.ok(rule, `${name} must define a text color`);
+    const channels = rule[1].slice(1).match(/../g).map(hex => parseInt(hex, 16) / 255)
+      .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    const luminance = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    assert.ok(1.05 / (luminance + 0.05) >= 4.5, `${name} must be readable on white`);
+  }
+});
+
 test('editable lab and contact values reach the banners as escaped text', () => {
   const {context} = setup({site: {lab_name: 'Example <Lab>', address_en: 'New <Building>\nStreet'}});
   assert.match(vm.runInContext('homePage()', context), /Example &lt;Lab&gt;/);
