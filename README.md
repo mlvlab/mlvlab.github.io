@@ -61,9 +61,9 @@ News DB에 **`Display text`**라는 열을 추가하고 유형을 **텍스트(Te
 
 현재 예외: 2026-09-26 NeurIPS 2026 합격 소식의 `Seven`은 홈페이지에서 파란색·굵게 표시합니다. 연구실 Notion 연결에 직접 접근할 수 없어 `template.html`의 `newsDisplaySegments`에서 해당 날짜와 전체 문장이 정확히 일치할 때만 적용합니다. 나머지 단어의 서식은 유지하며, 이 단어까지 Notion에서만 관리하려면 해당 예외를 제거하면 됩니다.
 
-### 논문 협업 기관 색 자동 표시
+### 논문 협업 기관과 News의 기업명 색 자동 표시
 
-Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣고 **굵게** 표시합니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 쉼표, 부서 이름, 나머지 문장은 유지합니다.
+Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣고 **굵게** 표시합니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 링크, 쉼표, 나머지 문장은 유지합니다. News는 기존 소식과 새 소식 모두 적용되며, Notion에서 기관명에 색을 따로 지정할 필요가 없습니다. 기관명에는 자동 브랜드 색이 우선하고, 나머지 단어에는 Notion의 색과 굵기를 사용합니다.
 
 | 기관 | 표시 방식 | 인식 예시 |
 |---|---|---|
@@ -71,15 +71,24 @@ Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 �
 | Microsoft | 글자 묶음별 주황·초록·파랑·노랑 | `Microsoft` |
 | Amazon | 선명한 주황색 | `Amazon`, `Amazon Inc`, `Amazon AGI team` |
 | Wisconsin–Madison | 빨간색 | `University of Wisconsin-Madison`, `Univ. of Wisconsin-Madison`, `Wisconsin-Madison`, `UW-Madison` |
-| Meta / UNIST | 파란색 / 남색 | `Meta`, `UNIST` |
-| Korea University | 짙은 빨간색 | `Korea Univ.`, `Korea University` |
-| TwelveLabs / Adobe | 진한 회색 / 빨간색 | `TwelveLabs`, `Adobe` |
-| Seoul National University | 파란색 | `Seoul National Univ.`, `Seoul National University` |
-| Snapchat | 노란색 | `Snapchat` |
+| Meta / Facebook / UNIST | 파란색 / 파란색 / 남색 | `Meta`, `Facebook`, `UNIST` |
+| Korea University | 짙은 빨간색 | `Korea Univ`, `Korea Univ.`, `Korea University` |
+| TwelveLabs / Adobe | 진한 회색 / 빨간색 | `TwelveLabs`, `Adobe`, `Adobe Research` |
+| Seoul National University | 파란색 | `Seoul National Univ`, `Seoul National Univ.`, `Seoul National University` |
+| Snapchat / Snap | 노란색 | `Snapchat`, `Snap Inc.`, `Snap Inc` |
+| KIST / NUIST | 주홍색 / 파란색 | `KIST`, `NUIST` |
+| University of Florida | 짙은 파란색 | `Univ. of Florida`, `Univ of Florida`, `University of Florida` |
+| KT | 빨간색 | `KT` |
+| NEC | 짙은 파란색 | `NEC`, `NEC Lab America` |
+| Naver | 초록색 | `Naver`, `NAVER`, `Naver AI Lab` |
+| Kakao / KakaoBrain | 노란색 | `KakaoBrain`, `Kakao Brain`, `Kakao` |
+| DeepMind | 파란색 | `DeepMind` |
 
-대소문자와 일반 하이픈/긴 대시 표기를 인식합니다. 기관 색은 **협업 기관 줄에만** 적용하며 논문 제목이나 저자 이름의 색은 바꾸지 않습니다. 다른 기관은 기본 색을 유지합니다. 기존 홈페이지의 기관별 색 조합을 따릅니다. Amazon은 선명한 주황색, Snapchat과 Google의 두 번째 `o`·Microsoft의 `ft`는 밝은 노란색으로 표시합니다. Wisconsin–Madison은 [공식 Badger Red](https://brand.wisc.edu/visual-identity/colors/)를 사용합니다. 추가 기관이나 색상 변경은 `template.html`의 기관 목록과 색 스타일에서 관리합니다.
+대소문자와 일반 하이픈/긴 대시 표기를 인식합니다. 기관 색은 **협업 기관 줄과 News 본문**에 적용하며 논문 제목이나 저자 이름의 색은 바꾸지 않습니다. URL·이메일 주소와 `Amazonian`처럼 기관명이 일부에 포함된 다른 단어에는 적용하지 않습니다. 목록에 없는 기관은 기본 색을 유지합니다. 기존 홈페이지의 기관별 색 조합을 따릅니다. Amazon은 선명한 주황색, Snapchat과 Google의 두 번째 `o`·Microsoft의 `ft`는 밝은 노란색으로 표시합니다. Wisconsin–Madison은 [공식 Badger Red](https://brand.wisc.edu/visual-identity/colors/)를 사용합니다. 추가 기관이나 색상 변경은 `template.html`의 `institutionMatches`, `collaborationName`과 색 스타일에서 관리합니다.
 
 이 기능을 포함한 코드가 배포된 뒤에는 Notion을 수정하고 기존과 같이 **Build site from Notion and deploy → Run workflow**를 실행하면 됩니다. 토큰이나 connection을 다시 설정할 필요는 없습니다.
+
+추가 기관의 색상 참고: [KIST CI](https://kist.re.kr/ko/intro/kist-ci.do), [Florida Core Blue](https://brandcenter.ufl.edu/colors/), [KT CI](https://corp.kt.com/eng/html/intro/design/design.html), [NUIST VI A29](https://nuist.nuist.edu.cn/_upload/article/files/e5/fb/0c41482a421cbfc91651ac209929/32455db7-6291-4cbc-8500-1cbde263391f.pdf), [NAVER](https://www.navercorp.com/company/brandGuide), [Kakao 계열 노랑](https://developers.kakao.com/docs/en/kakaologin/design-guide). NEC와 DeepMind의 파란색은 홈페이지 표시용 색조이며 공식 CI 수치를 의미하지 않습니다.
 
 ## 다른 DB의 주요 필드
 
