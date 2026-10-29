@@ -398,16 +398,19 @@ test('Collaboration escapes HTML and applies colors only to collaboration text',
   assert.doesNotMatch(line, /<img|collab-google/);
 });
 
-test('Collaboration institution colors meet 4.5 to 1 contrast on white', () => {
+test('Collaboration colors define every group and retain contrast outside the requested vivid accents', () => {
   const {context} = setup();
   context.paper = {...snapshot.pubs[0], collab: 'Google Cloud AI Microsoft Amazon UW-Madison Meta UNIST Korea Univ. TwelveLabs Adobe Seoul National Univ. Snapchat'};
   const output = vm.runInContext('pubRow(paper)', context);
   const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
   const names = [...line.matchAll(/<span class="(?:collab-name )?(collab-[a-z-]+)">[^<]+<\/span>/g)].map(match => match[1]);
   assert.ok(names.length >= 20, 'Every single-color name and multicolor group should receive a color');
+  // The lab explicitly chose vivid orange/yellow for these accents; other colors retain the existing contrast floor.
+  const vividAccents = new Set(['collab-google-gold', 'collab-microsoft-gold', 'collab-amazon', 'collab-snapchat']);
   for (const name of names) {
     const rule = template.match(new RegExp(`\\.pub \\.${name}\\{color:(#[0-9a-f]{6})\\}`, 'i'));
     assert.ok(rule, `${name} must define a text color`);
+    if (vividAccents.has(name)) continue;
     const channels = rule[1].slice(1).match(/../g).map(hex => parseInt(hex, 16) / 255)
       .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
     const luminance = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;

@@ -61,21 +61,21 @@ News DB에 **`Display text`**라는 열을 추가하고 유형을 **텍스트(Te
 
 ### 논문 협업 기관 색 자동 표시
 
-Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣습니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 쉼표, 부서 이름, 나머지 문장은 유지합니다.
+Publications의 **`Collaboration`**에 기관 이름을 평소처럼 적으면 해당 이름에 자동으로 색을 넣고 **굵게** 표시합니다. 예: `TwelveLabs, Microsoft, Amazon AGI team`에서 Microsoft와 Amazon이 각각 강조됩니다. 쉼표, 부서 이름, 나머지 문장은 유지합니다.
 
 | 기관 | 표시 방식 | 인식 예시 |
 |---|---|---|
-| Google | 글자별 파랑·빨강·금색·초록, Cloud AI는 진한 회색 | `Google`, `Google Cloud AI` |
-| Microsoft | 글자 묶음별 주황·초록·파랑·금색 | `Microsoft` |
-| Amazon | 진한 주황색 | `Amazon`, `Amazon Inc`, `Amazon AGI team` |
+| Google | 글자별 파랑·빨강·노랑·초록, Cloud AI는 진한 회색 | `Google`, `Google Cloud AI` |
+| Microsoft | 글자 묶음별 주황·초록·파랑·노랑 | `Microsoft` |
+| Amazon | 선명한 주황색 | `Amazon`, `Amazon Inc`, `Amazon AGI team` |
 | Wisconsin–Madison | 빨간색 | `University of Wisconsin-Madison`, `Univ. of Wisconsin-Madison`, `Wisconsin-Madison`, `UW-Madison` |
 | Meta / UNIST | 파란색 / 남색 | `Meta`, `UNIST` |
 | Korea University | 짙은 빨간색 | `Korea Univ.`, `Korea University` |
 | TwelveLabs / Adobe | 진한 회색 / 빨간색 | `TwelveLabs`, `Adobe` |
 | Seoul National University | 파란색 | `Seoul National Univ.`, `Seoul National University` |
-| Snapchat | 금색 | `Snapchat` |
+| Snapchat | 노란색 | `Snapchat` |
 
-대소문자와 일반 하이픈/긴 대시 표기를 인식합니다. 기관 색은 **협업 기관 줄에만** 적용하며 논문 제목이나 저자 이름의 색은 바꾸지 않습니다. 다른 기관은 기본 색을 유지합니다. 기존 홈페이지의 기관별 색 조합을 따르되 밝은 색은 작은 글씨도 읽을 수 있도록 진하게 조정합니다. Wisconsin–Madison은 [공식 Badger Red](https://brand.wisc.edu/visual-identity/colors/)를 사용합니다. 추가 기관이나 색상 변경은 `template.html`의 기관 목록과 색 스타일에서 관리합니다.
+대소문자와 일반 하이픈/긴 대시 표기를 인식합니다. 기관 색은 **협업 기관 줄에만** 적용하며 논문 제목이나 저자 이름의 색은 바꾸지 않습니다. 다른 기관은 기본 색을 유지합니다. 기존 홈페이지의 기관별 색 조합을 따릅니다. Amazon은 선명한 주황색, Snapchat과 Google의 두 번째 `o`·Microsoft의 `ft`는 밝은 노란색으로 표시합니다. Wisconsin–Madison은 [공식 Badger Red](https://brand.wisc.edu/visual-identity/colors/)를 사용합니다. 추가 기관이나 색상 변경은 `template.html`의 기관 목록과 색 스타일에서 관리합니다.
 
 이 기능을 포함한 코드가 배포된 뒤에는 Notion을 수정하고 기존과 같이 **Build site from Notion and deploy → Run workflow**를 실행하면 됩니다. 토큰이나 connection을 다시 설정할 필요는 없습니다.
 
