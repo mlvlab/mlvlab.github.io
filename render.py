@@ -42,6 +42,14 @@ def main():
     full = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')
     OUT.mkdir(parents=True, exist_ok=True)
+    # Repository-owned venue marks are independent of Notion's expiring asset URLs.
+    venue_assets = HERE / 'assets' / 'venues'
+    if venue_assets.exists():
+        target = OUT / 'assets' / 'venues'
+        target.mkdir(parents=True, exist_ok=True)
+        for asset in venue_assets.iterdir():
+            if asset.suffix.lower() in {'.svg', '.png', '.webp'}:
+                shutil.copyfile(asset, target / asset.name)
     (OUT / 'index.html').write_text(full, encoding='utf-8')
     # Keep the old Google Sites /home URL working, including on custom domains.
     home = OUT / 'home'

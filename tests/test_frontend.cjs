@@ -511,3 +511,160 @@ test('publication citation retains presentation details absent from the venue', 
   assert.match(output, /AAAI, 2026\./);
   assert.equal((output.match(/Oral presentation, ~top 5%/g) || []).length, 1);
 });
+
+function callVenue(renderer, overrides) {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs[0], type: 'Conference', year: 2026,
+    venue_short: '', venue: '', ...overrides};
+  assert.equal(typeof context[renderer], 'function', `${renderer} must render the new venue treatment`);
+  const before = JSON.stringify(context.paper);
+  const output = vm.runInContext(`${renderer}(paper)`, context);
+  assert.equal(JSON.stringify(context.paper), before, 'Rendering must not change the source publication');
+  return output;
+}
+
+function visibleText(html) {
+  return html.replace(/<[^>]*>/g, '').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'")
+    .replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+}
+
+test('venue recognition distinguishes all requested acronyms, including ACL within NAACL', () => {
+  for (const label of ['NeurIPS', 'ICCV', 'ECCV', 'AAAI', 'CVPR', 'ICLR', 'ICML', 'WACV',
+                       'IJCV', 'EMNLP', 'ACL', 'NAACL']) {
+    const actual = callVenue('publicationVenue', {venue_short: label.toLowerCase(), venue: `${label}, 2026.`});
+    assert.equal(actual?.key, label.toLowerCase(), label);
+    assert.equal(actual.label, label, 'The badge should use the familiar canonical abbreviation');
+    assert.equal(actual.workshop, false);
+  }
+});
+
+test('venue acronym matching does not color substrings of unrelated words', () => {
+  for (const text of ['ACL2', 'NAACLish', 'XICLR', 'CVPRnet', '_ICML', 'ICML_', 'éACL', 'ACLé', '한국ACL', 'ACL한국']) {
+    assert.equal(callVenue('publicationVenue', {venue_short: text, venue: `${text}, 2026.`}), null, text);
+    assert.doesNotMatch(callVenue('venueCitation', {venue_short: text, venue: `${text}, 2026.`}), /venue-acronym/);
+  }
+});
+
+test('workshop variants keep their parent venue and remain visibly marked as workshops', () => {
+  const cases = [
+    ['NeurIPSW', 'neurips'], ['CVPRW', 'cvpr'], ['ECCVW', 'eccv'], ['EMNLPW', 'emnlp'],
+    ['ICCV Workshop', 'iccv'], ['WACV Workshops', 'wacv'], ['ACL-W', 'acl'], ['NAACL-W', 'naacl'],
+  ];
+  for (const [short, key] of cases) {
+    const paper = {venue_short: short, venue: `${short}, 2026.`};
+    const actual = callVenue('publicationVenue', paper);
+    assert.equal(actual?.key, key, short);
+    assert.equal(actual.workshop, true, short);
+    const badge = visibleText(callVenue('venueBadge', paper));
+    assert.match(badge, /Workshop/i, `${short} must not appear to be a main-conference paper`);
+    assert.match(badge, /2026/);
+  }
+  for (const full of ['Computer Vision and Pattern Recognition Workshop (CVPR), 2026.',
+                      'Computer Vision and Pattern Recognition (CVPR), Workshops, 2026.']) {
+    const paper = {venue_short: 'CVPR', venue: full};
+    assert.equal(callVenue('publicationVenue', paper).workshop, true, full);
+    const badge = visibleText(callVenue('venueBadge', paper));
+    assert.match(badge, /CVPR/);
+    assert.match(badge, /2026/);
+    assert.match(badge, /Workshop/);
+  }
+});
+
+test('preprints and unknown venues retain neutral escaped text without conference logos', () => {
+  for (const paper of [
+    {type: 'Preprint', venue_short: 'arXiv', venue: 'arXiv preprint, submitted to NeurIPS.'},
+    {type: 'Preprint', venue_short: 'NeurIPS', venue: 'NeurIPS preprint, 2026.'},
+    {venue_short: 'New <Venue>', venue: 'New <Venue> & "Meeting", 2026.'},
+  ]) {
+    assert.equal(callVenue('publicationVenue', paper), null);
+    const citation = callVenue('venueCitation', paper);
+    assert.equal(visibleText(citation), paper.venue);
+    assert.doesNotMatch(citation, /venue-acronym|<img\b|<Venue>/);
+    const badge = callVenue('venueBadge', paper);
+    assert.doesNotMatch(badge, /<img\b|venue-acronym|<Venue>/);
+    assert.ok(visibleText(badge).includes(paper.venue_short));
+  }
+});
+
+test('the publication type identifies a workshop even when its venue text omits that word', () => {
+  const paper = {type: 'Workshop', venue_short: 'CVPR', venue: 'CVPR, 2026.'};
+  const venue = callVenue('publicationVenue', paper);
+  assert.equal(venue.key, 'cvpr');
+  assert.equal(venue.workshop, true);
+  assert.match(visibleText(callVenue('venueBadge', paper)), /Workshop/);
+});
+
+test('known venue badges retain Findings, track and named-workshop qualifiers', () => {
+  for (const [short, expectedLabel, workshop] of [
+    ['emnlp Findings', 'EMNLP Findings', false],
+    ['NeurIPS Datasets and Benchmarks', 'NeurIPS Datasets and Benchmarks', false],
+    ['CVPR ECV Workshop', 'CVPR ECV', true],
+  ]) {
+    const paper = {venue_short: short, venue: `${short}, 2026.`};
+    const venue = callVenue('publicationVenue', paper);
+    assert.equal(venue.label, expectedLabel, 'Matching a parent venue must not discard the specific track');
+    assert.equal(venue.workshop, workshop);
+    const badge = visibleText(callVenue('venueBadge', paper));
+    assert.ok(badge.includes(expectedLabel), short);
+    assert.match(badge, /2026/);
+    if (workshop) assert.equal((badge.match(/Workshop/g) || []).length, 1);
+  }
+});
+
+test('recognized venue qualifiers are escaped rather than interpreted as badge HTML', () => {
+  const paper = {venue_short: 'CVPR <img onerror=x>', venue: 'CVPR, 2026.'};
+  const badge = callVenue('venueBadge', paper);
+  assert.match(badge, /CVPR &lt;img onerror=x&gt;/);
+  assert.ok(visibleText(badge).includes(paper.venue_short));
+  assert.doesNotMatch(badge, /<[^>]+\bonerror\s*=/i);
+});
+
+test('citation highlighting preserves escaped source text and emphasizes only the acronym', () => {
+  const venue = 'Advances in Neural Information Processing Systems (NeurIPS), 2026. (accepted) & <img src=x onerror="evil()">';
+  const output = callVenue('venueCitation', {venue_short: 'NeurIPS', venue});
+  assert.equal(visibleText(output), venue);
+  const emphasized = [...output.matchAll(/<strong\b[^>]*>([\s\S]*?)<\/strong>/g)];
+  assert.deepEqual(emphasized.map(match => match[1]), ['NeurIPS']);
+  assert.match(output, /<strong class="venue-acronym" style="color:[^"]+">NeurIPS<\/strong>/);
+  assert.match(output, /&amp; &lt;img src=x onerror=&quot;evil\(\)&quot;&gt;/);
+  assert.doesNotMatch(output, /<img\b|<script\b|<svg\b/);
+});
+
+test('the known short venue disambiguates other conference names in its citation', () => {
+  const venue = 'Nations of the Americas Chapter of ACL (NAACL), with ACL cooperation, 2026.';
+  const output = callVenue('venueCitation', {venue_short: 'NAACL', venue});
+  assert.equal(visibleText(output), venue);
+  assert.deepEqual([...output.matchAll(/<strong\b[^>]*>(.*?)<\/strong>/g)].map(match => match[1]), ['NAACL']);
+  assert.doesNotMatch(output, />ACL<\/strong>/);
+});
+
+test('stable logos work across years while annual vision logos do not leak into unrelated years', () => {
+  for (const venue of ['NeurIPS', 'ICLR', 'ICML', 'ACL']) {
+    const earlier = callVenue('publicationVenue', {venue_short: venue, year: 2020});
+    const current = callVenue('publicationVenue', {venue_short: venue, year: 2026});
+    assert.ok(earlier.logo, `${venue} should retain its year-neutral official mark`);
+    assert.equal(earlier.logo, current.logo);
+  }
+  for (const venue of ['ICCV', 'ECCV', 'CVPR', 'WACV']) {
+    const paper = {venue_short: venue, year: 1900};
+    assert.ok(!callVenue('publicationVenue', paper).logo, `${venue} must not borrow another year's logo`);
+    assert.doesNotMatch(callVenue('venueBadge', paper), /<img\b/);
+    assert.match(visibleText(callVenue('venueBadge', paper)), new RegExp(`${venue}\\s+1900`));
+  }
+});
+
+test('publication badges place the logo above the figure and keep awards to the venue right', () => {
+  const {context} = setup();
+  context.paper = {...snapshot.pubs[0], venue_short: 'NeurIPS',
+    venue: 'Advances in Neural Information Processing Systems (NeurIPS), 2026.',
+    badge: 'Oral', presentation: 'Oral presentation', thumb: '', year: 2026};
+  const output = vm.runInContext('pubRow(paper)', context);
+  const meta = output.match(/<div class="pub-meta">([\s\S]*?)<\/div>/)[1];
+  const citation = output.match(/<div class="venue">([\s\S]*?)<\/div>/)[1];
+  assert.match(meta, /<img\b/);
+  assert.ok(meta.indexOf('pub-venue') < meta.indexOf('pub-distinction'), 'Award must follow its venue in the same visual row');
+  assert.match(meta, />Oral<\/span>/);
+  assert.ok(output.indexOf('pub-meta') < output.indexOf('class="thumb'), 'Venue and logo should stay above the figure');
+  assert.match(citation, /venue-acronym/);
+  assert.doesNotMatch(citation, /<img\b/);
+});
