@@ -407,6 +407,53 @@ test('Collaboration recognizes Wisconsin aliases and avoids unrelated word subst
   assert.doesNotMatch(vm.runInContext('pubRow(paper)', context), /class="collab-name/);
 });
 
+test('Institution aliases include new collaborators and optional Univ punctuation', () => {
+  const {context} = setup();
+  const cases = [['KIST','kist'],['Univ. of Florida','florida'],['University of Florida','florida'],
+    ['KT','kt'],['NUIST','nuist'],['Seoul National Univ','seoul'],['Seoul National Univ.','seoul']];
+  context.value = cases.map(([name])=>name).join(', ');
+  const output = vm.runInContext('collaborationText(value)', context);
+  for(const [name,color] of cases) assert.ok(output.includes(`class="collab-name collab-${color}">${name}</span>`),name);
+  assert.equal(output.replace(/<[^>]*>/g,''),context.value);
+  context.value = 'KISTI KTX NUISTed University of FloridaX Seoul National Universitypress Meta+foo@example.com Google@example.com';
+  assert.doesNotMatch(vm.runInContext('collaborationText(value)',context),/collab-name/);
+});
+
+test('News colors every current corporate alias while preserving Markdown links and literal markup', () => {
+  const {context} = setup();
+  context.news = {md:'**Snap Inc.** / Adobe Research / Meta / [Google](https://google.com/a?x=1&y=2) / NEC Lab America / Naver AI Lab / Amazon / KakaoBrain / DeepMind / Facebook. Amazonian <img alt="Google"> https://Google.com'};
+  const output = vm.runInContext('newsText(news)',context);
+  for(const color of ['snapchat','adobe','meta','google','nec','naver','amazon','kakao','deepmind','facebook']) {
+    assert.match(output,new RegExp(`class="collab-name collab-${color}"`));
+  }
+  assert.match(output, /href="https:\/\/google.com\/a\?x=1&amp;y=2"/);
+  assert.match(output, /Amazonian &lt;img alt=&quot;Google&quot;&gt;/);
+  assert.doesNotMatch(output, /<img|collab-amazon">Amazonian/);
+  assert.match(output, /href="https:\/\/Google.com"[^>]*>Google.com<\/a>/);
+});
+
+test('News recognizes a company across Notion segments without losing links or surrounding styles', () => {
+  const {context} = setup();
+  context.news = {segments:[
+    {text:'At ',color:'red',bold:true},
+    {text:'Goo',color:'red',href:'https://google.com'},
+    {text:'gle',color:'green_background',href:'https://google.com'},
+    {text:' & Meta',color:'purple',bold:false},
+  ]};
+  const before=JSON.stringify(context.news);
+  const output=vm.runInContext('newsText(news)',context);
+  assert.match(output, /notion-color-red"><strong>At <\/strong>/);
+  assert.match(output, /notion-color-green_background/);
+  assert.match(output, /collab-google-gold">o<\/span>/);
+  assert.match(output, /collab-google-green">l<\/span>/);
+  assert.match(output, /collab-name collab-meta">Meta<\/span>/);
+  assert.equal((output.match(/href="https:\/\/google.com"/g)||[]).length,2);
+  assert.equal(output.replace(/<[^>]*>/g,'').replace(/&amp;/g,'&'),'At Google & Meta');
+  assert.equal(JSON.stringify(context.news),before);
+  context.news={md:'Goo\ngle'};
+  assert.doesNotMatch(vm.runInContext('newsText(news)',context), /collab-name/);
+});
+
 test('Collaboration escapes HTML and applies colors only to collaboration text', () => {
   const {context} = setup();
   context.paper = {...snapshot.pubs[0], title: 'Google Microsoft Amazon UW-Madison',
@@ -422,13 +469,13 @@ test('Collaboration escapes HTML and applies colors only to collaboration text',
 
 test('Collaboration colors define every group and retain contrast outside the requested vivid accents', () => {
   const {context} = setup();
-  context.paper = {...snapshot.pubs[0], collab: 'Google Cloud AI Microsoft Amazon UW-Madison Meta UNIST Korea Univ. TwelveLabs Adobe Seoul National Univ. Snapchat'};
+  context.paper = {...snapshot.pubs[0], collab: 'Google Cloud AI Microsoft Amazon UW-Madison Meta UNIST Korea Univ. TwelveLabs Adobe Seoul National Univ. Snapchat KIST Univ. of Florida KT NUIST NEC Naver KakaoBrain DeepMind Facebook'};
   const output = vm.runInContext('pubRow(paper)', context);
   const line = output.match(/<div class="note">Collaboration with ([\s\S]*?)<\/div>/)[1];
   const names = [...line.matchAll(/<span class="(?:collab-name )?(collab-[a-z-]+)">[^<]+<\/span>/g)].map(match => match[1]);
   assert.ok(names.length >= 20, 'Every single-color name and multicolor group should receive a color');
-  // The lab explicitly chose vivid orange/yellow for these accents; other colors retain the existing contrast floor.
-  const vividAccents = new Set(['collab-google-gold', 'collab-microsoft-gold', 'collab-amazon', 'collab-snapchat']);
+  // Preserve vivid brand accents; the remaining palette retains the existing contrast floor.
+  const vividAccents = new Set(['collab-google-gold', 'collab-microsoft-gold', 'collab-amazon', 'collab-snapchat', 'collab-kist', 'collab-kt', 'collab-naver', 'collab-kakao']);
   for (const name of names) {
     const rule = template.match(new RegExp(`\\.pub \\.${name}\\{color:(#[0-9a-f]{6})\\}`, 'i'));
     assert.ok(rule, `${name} must define a text color`);

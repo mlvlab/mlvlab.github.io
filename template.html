@@ -229,25 +229,34 @@ table.list td a{color:var(--navy);font-weight:700}
 .tablewrap{overflow-x:auto}
 
 /* ---------- publications ---------- */
-.pub .collab-name{font-weight:700}
-.pub .collab-google-blue{color:#1A4EBE}
-.pub .collab-google-red{color:#C5221F}
-.pub .collab-google-gold{color:#FBBC05}
-.pub .collab-google-green{color:#397326}
-.pub .collab-microsoft-red{color:#C63E1C}
-.pub .collab-microsoft-green{color:#527F0F}
-.pub .collab-microsoft-blue{color:#006EAB}
-.pub .collab-microsoft-gold{color:#FFB900}
-.pub .collab-amazon{color:#FF9900}
-.pub .collab-wisconsin{color:#C5050C}
-.pub .collab-meta{color:#3B6ECC}
-.pub .collab-unist{color:#061B47}
-.pub .collab-korea{color:#861B0D}
-.pub .collab-twelvelabs{color:#555555}
-.pub .collab-charcoal{color:#555555}
-.pub .collab-adobe{color:#C5221F}
-.pub .collab-seoul{color:#285396}
-.pub .collab-snapchat{color:#FFCC00}
+.news .collab-name,.pub .collab-name{font-weight:700}
+.news .collab-google-blue,.pub .collab-google-blue{color:#1A4EBE}
+.news .collab-google-red,.pub .collab-google-red{color:#C5221F}
+.news .collab-google-gold,.pub .collab-google-gold{color:#FBBC05}
+.news .collab-google-green,.pub .collab-google-green{color:#397326}
+.news .collab-microsoft-red,.pub .collab-microsoft-red{color:#C63E1C}
+.news .collab-microsoft-green,.pub .collab-microsoft-green{color:#527F0F}
+.news .collab-microsoft-blue,.pub .collab-microsoft-blue{color:#006EAB}
+.news .collab-microsoft-gold,.pub .collab-microsoft-gold{color:#FFB900}
+.news .collab-amazon,.pub .collab-amazon{color:#FF9900}
+.news .collab-wisconsin,.pub .collab-wisconsin{color:#C5050C}
+.news .collab-meta,.pub .collab-meta{color:#3B6ECC}
+.news .collab-unist,.pub .collab-unist{color:#061B47}
+.news .collab-korea,.pub .collab-korea{color:#861B0D}
+.news .collab-twelvelabs,.pub .collab-twelvelabs{color:#555555}
+.news .collab-charcoal,.pub .collab-charcoal{color:#555555}
+.news .collab-adobe,.pub .collab-adobe{color:#C5221F}
+.news .collab-seoul,.pub .collab-seoul{color:#285396}
+.news .collab-snapchat,.pub .collab-snapchat{color:#FFCC00}
+.news .collab-kist,.pub .collab-kist{color:#E44126}
+.news .collab-florida,.pub .collab-florida{color:#0021A5}
+.news .collab-kt,.pub .collab-kt{color:#ED2024}
+.news .collab-nuist,.pub .collab-nuist{color:#00679C}
+.news .collab-nec,.pub .collab-nec{color:#003399}
+.news .collab-naver,.pub .collab-naver{color:#03C75A}
+.news .collab-kakao,.pub .collab-kakao{color:#FEE500}
+.news .collab-deepmind,.pub .collab-deepmind{color:#174EA6}
+.news .collab-facebook,.pub .collab-facebook{color:#3B6ECC}
 .toolbar{position:sticky;top:72px;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);padding:12px 0;border-bottom:1px solid var(--line);margin-bottom:8px}
 .toolbar .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .input{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-width:240px;flex:1}
@@ -635,8 +644,8 @@ function newsDisplaySegments(n){
 }
 function newsText(n){
   const segments = newsDisplaySegments(n);
-  if(!segments) return md(n.md).replace(/^<p>|<\/p>$/g,'');
-  return segments.map(segment=>{
+  if(!segments) return newsInstitutionColors(md(n.md).replace(/^<p>|<\/p>$/g,''));
+  return newsInstitutionColors(segments.map(segment=>{
     if(!segment || typeof segment.text !== 'string') return '';
     let text = esc(segment.text).replace(/\r\n?|\n/g,'<br>');
     if(segment.bold === true) text = `<strong>${text}</strong>`;
@@ -644,7 +653,7 @@ function newsText(n){
     const href = newsHref(segment.href);
     if(href) text = `<a href="${esc(href)}"${/^https?:/i.test(href)?' target="_blank" rel="noopener"':''}>${text}</a>`;
     return text;
-  }).join('');
+  }).join(''));
 }
 const newsRow = (n, i) => `<li><time>${n.date}</time><p>${newsText(n)}${i < NEW_N ? '<span class="pill">NEW</span>' : ''}</p></li>`;
 function homeAfter(){
@@ -714,7 +723,7 @@ function peoplePage(){
 
 /* ---------- publications ---------- */
 const TYPES = ['Conference','Journal','Workshop','Preprint','Thesis','Book chapter'];
-function collaborationName(name){
+function collaborationName(name, from=0, to=name.length){
   const lower = name.toLowerCase();
   const span = (text, color) => `<span class="collab-name collab-${color}">${esc(text)}</span>`;
   if(lower.startsWith('google') || lower === 'microsoft'){
@@ -724,29 +733,61 @@ function collaborationName(name){
       ? [[0,1,'blue'],[1,2,'red'],[2,3,'gold'],[3,4,'blue'],[4,5,'green'],[5,6,'red']]
       : [[0,3,'red'],[3,5,'green'],[5,7,'blue'],[7,9,'gold']];
     // Expose one complete wordmark to assistive technology, preserving source case.
-    const letters = groups.map(([start,end,color])=>`<span class="collab-${brand}-${color}">${esc(word.slice(start,end))}</span>`).join('');
-    return `<span class="collab-name collab-${brand}" role="img" aria-label="${esc(word)}">${letters}</span>`
-      + (name.length > word.length ? span(name.slice(word.length), 'charcoal') : '');
+    const letters = groups.filter(([start,end])=>start<to && end>from)
+      .map(([start,end,color])=>`<span class="collab-${brand}-${color}">${esc(word.slice(Math.max(start,from),Math.min(end,to)))}</span>`).join('');
+    const accessible = from===0 && to>=word.length ? ` role="img" aria-label="${esc(word)}"` : '';
+    return (letters ? `<span class="collab-name collab-${brand}"${accessible}>${letters}</span>` : '')
+      + (to > word.length ? span(name.slice(Math.max(from,word.length),to), 'charcoal') : '');
   }
   const color = lower.startsWith('amazon') ? 'amazon'
     : /wisconsin|^uw[-–]/.test(lower) ? 'wisconsin'
+    : /florida$/.test(lower) ? 'florida'
     : lower.startsWith('korea') ? 'korea'
-    : lower.startsWith('seoul') ? 'seoul' : lower;
-  return span(name, color);
+    : lower.startsWith('seoul') ? 'seoul'
+    : lower.startsWith('snap') ? 'snapchat'
+    : lower.startsWith('adobe') ? 'adobe'
+    : lower.startsWith('nec') ? 'nec'
+    : lower.startsWith('naver') ? 'naver'
+    : lower.startsWith('kakao') ? 'kakao' : lower;
+  return span(name.slice(from,to), color);
+}
+function institutionMatches(text){
+  // Do not color names inside literal markup, web addresses or email addresses.
+  const protectedRanges = [...text.matchAll(/<[^>]*>|(?:https?:\/\/|www\.)[^\s<>]+|[\p{L}\p{N}.!#$%&'*+/=?^_`{|}~-]+@[\p{L}\p{N}.-]+|[\p{L}\p{N}_@.-]+\.[a-z]{2,}(?:\/[^\s<>]*)?/giu)]
+    .map(m=>[m.index,m.index+m[0].length]);
+  const institutions = /(^|[^\p{L}\p{N}_])((?:(?:University of|Univ\.? of)\s+)?Wisconsin[-–]Madison|UW[-–]Madison|(?:University|Univ\.?)\s+of\s+Florida|Google(?:\s+Cloud\s+AI)?|Microsoft|Amazon(?:\s+(?:AGI\s+team|Inc\.?))?|Meta|Facebook|UNIST|NUIST|KIST|KT|Korea\s+(?:University|Univ\.?)|TwelveLabs|Adobe(?:\s+Research)?|Seoul\s+National\s+(?:University|Univ\.?)|Snapchat|Snap\s+Inc\.?|NEC(?:\s+Lab\s+America)?|Naver(?:\s+AI\s+Lab)?|Kakao\s*Brain|Kakao|DeepMind)(?=$|[^\p{L}\p{N}_])/giu;
+  return [...text.matchAll(institutions)].map(m=>({name:m[2],start:m.index+m[1].length,end:m.index+m[0].length}))
+    .filter(m=>!protectedRanges.some(([start,end])=>m.start<end && m.end>start));
+}
+function institutionTextRange(text, offset, matches){
+  let html='', cursor=0;
+  for(const match of matches){
+    const start=Math.max(0,match.start-offset), end=Math.min(text.length,match.end-offset);
+    if(start>=end) continue;
+    html+=esc(text.slice(cursor,start))+collaborationName(match.name,offset+start-match.start,offset+end-match.start);
+    cursor=end;
+  }
+  return html+esc(text.slice(cursor));
 }
 function collaborationText(value){
-  // HTML-looking fragments remain escaped text, including names in attributes.
-  return String(value || '').split(/(<[^>]*>)/g).map(part=>{
-    if(part.startsWith('<')) return esc(part);
-    const institutions = /(^|[^\p{L}\p{N}_])((?:(?:University of|Univ\. of)\s+)?Wisconsin[-–]Madison|UW[-–]Madison|Google(?:\s+Cloud\s+AI)?|Microsoft|Amazon(?:\s+(?:AGI\s+team|Inc\.?))?|Meta|UNIST|Korea\s+(?:University|Univ\.)|TwelveLabs|Adobe|Seoul\s+National\s+(?:University|Univ\.)|Snapchat)(?=$|[^\p{L}\p{N}_])/giu;
-    let html = '', cursor = 0;
-    for(const match of part.matchAll(institutions)){
-      const start = match.index + match[1].length, name = match[2];
-      html += esc(part.slice(cursor, start)) + collaborationName(name);
-      cursor = start + name.length;
+  const text=String(value || '');
+  return institutionTextRange(text,0,institutionMatches(text));
+}
+function newsInstitutionColors(html){
+  // Only decorate text produced by our renderer; retain generated tags and hrefs.
+  // Matching across text chunks also handles names split by Notion formatting.
+  let text='';
+  const tokens=html.split(/(<[^>]*>)/g).map(part=>{
+    if(part.startsWith('<')){
+      if(/^<\/?(?:br|p|li|ul)\b/i.test(part)) text+='\n';
+      return {html:part};
     }
-    return html + esc(part.slice(cursor));
-  }).join('');
+    const value=part.replace(/&quot;/g,'"').replace(/&gt;/g,'>').replace(/&lt;/g,'<').replace(/&amp;/g,'&');
+    const offset=text.length; text+=value;
+    return {text:value,offset};
+  });
+  const matches=institutionMatches(text);
+  return tokens.map(t=>t.html ?? institutionTextRange(t.text,t.offset,matches)).join('');
 }
 function pubRow(p, activeAuthor){
   const nn = s => s.toLowerCase().split(/\s+/).filter(w=>w.replace('.','').length>1).join('').replace(/[^a-z]/g,'');
