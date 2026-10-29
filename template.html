@@ -631,15 +631,16 @@ function newsDisplaySegments(n){
   // Requested presentation override while the lab's Notion connection is unavailable.
   // Match this announcement exactly; preserve all other source text, links and styles.
   if(n.date !== '2026-09-26' || text !== 'Seven papers (5 main, 1 eval&dataset track, 1 workshop) got accepted at NeurIPS 2026. Congrats to all the coauthors!') return segments;
-  let remaining = 'Seven'.length;
+  let offset = 0;
   return (segments || [{text, bold:false, color:'default', href:''}]).flatMap(segment=>{
-    if(!remaining || typeof segment?.text !== 'string') return [segment];
-    const count = Math.min(remaining, segment.text.length);
-    remaining -= count;
-    return [
-      {...segment, text:segment.text.slice(0,count), bold:true, color:'blue'},
-      ...(count < segment.text.length ? [{...segment, text:segment.text.slice(count)}] : []),
-    ];
+    if(typeof segment?.text !== 'string') return [segment];
+    const start = offset; offset += segment.text.length;
+    // Only Seven is colored; reset the following " papers" to the normal text color.
+    return [[0,5,{bold:true,color:'blue'}],[5,12,{color:'default'}],[12,Infinity,{}]]
+      .flatMap(([from,to,style])=>{
+        const left=Math.max(0,from-start), right=Math.min(segment.text.length,to-start);
+        return left<right ? [{...segment,...style,text:segment.text.slice(left,right)}] : [];
+      });
   });
 }
 function newsText(n){

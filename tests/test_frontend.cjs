@@ -271,7 +271,8 @@ test('NeurIPS announcement emphasizes only Seven without mutating source styles 
   const before = JSON.stringify(context.news);
   const output = vm.runInContext('newsText(news)', context);
   assert.match(output, /<a href="\/announcement"><span class="notion-color-blue"><strong>Seven<\/strong><\/span><\/a>/);
-  assert.match(output, /<a href="\/announcement"><span class="notion-color-red"> papers<\/span><\/a>/);
+  assert.match(output, /<a href="\/announcement"> papers<\/a>/);
+  assert.doesNotMatch(output, /notion-color-red/);
   assert.equal(output.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&'), sentence);
   assert.equal(JSON.stringify(context.news), before);
   context.news.date = '2025-09-26';
