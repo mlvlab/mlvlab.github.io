@@ -24,6 +24,16 @@ Notion DB → fetch_notion.py → build/ 데이터 + site/img/ 이미지
 
 ## 논문과 썸네일 추가
 
+### 홈페이지 주소 공유 시 대표 이미지
+
+카카오톡·Slack 등에 홈페이지 주소를 붙여 넣었을 때 사용할 대표 이미지는 GitHub의 `assets/social/mlv-lab-20261030.png`입니다. 파란 배경의 MLV 로고와 KAIST 문구를 사용합니다. 공유 제목은 **MLV Lab | KAIST**, 설명은 **Machine Learning and Vision Lab at KAIST**이며 `social-meta.html`에서 관리합니다. Notion을 수정할 필요는 없습니다.
+
+`render.py`가 일반 빌드와 복구용 `--snapshot` 빌드 모두에서 이미지를 배포하고, 루트 페이지 및 기존 `/home` 주소의 HTML에 같은 공유 정보를 넣습니다. `#/publications` 등 메뉴 주소도 같은 홈페이지 대표 이미지를 사용합니다. 공유 주소는 `https://mlv.kaist.ac.kr/`이며 Notion의 `site_url` 값과 별도로 관리합니다.
+
+나중에 이미지를 교체할 때는 새 파일명을 사용하고 `social-meta.html`의 이미지 URL·크기·설명과 `render.py`의 복사 파일명을 함께 수정합니다. 메신저가 이전 정보를 저장해 두었다면 새 이미지 표시가 늦어질 수 있습니다.
+
+### 논문별 그림
+
 Publications에 새 행을 만들고 다음 항목을 입력합니다.
 
 | 열 | 입력할 내용 |

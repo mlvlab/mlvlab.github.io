@@ -36,12 +36,19 @@ def main():
         if errors:
             sys.exit('Image validation failed:\n' + '\n'.join(errors))
     tpl = open(HERE / 'template.html', encoding='utf-8').read()
+    # Crawlers read the initial HTML, including the legacy /home entry point.
+    social_meta = (HERE / 'social-meta.html').read_text(encoding='utf-8')
     j = lambda x: json.dumps(x, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
-    html = tpl.replace('__ASSETS__', j(assets)).replace('__DATA__', j(data)).replace('__MODE__', 'local')
+    html = tpl.replace('__SOCIAL_META__', social_meta).replace('__ASSETS__', j(assets)).replace('__DATA__', j(data)).replace('__MODE__', 'local')
     head, body = html.split('</style>', 1)
     full = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')
     OUT.mkdir(parents=True, exist_ok=True)
+    # Always publish the share card, for both live Notion and snapshot builds.
+    social_target = OUT / 'assets' / 'social'
+    social_target.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / 'assets' / 'social' / 'mlv-lab-20261030.png',
+                    social_target / 'mlv-lab-20261030.png')
     # Repository-owned venue marks are independent of Notion's expiring asset URLs.
     venue_assets = HERE / 'assets' / 'venues'
     if venue_assets.exists():
@@ -57,7 +64,7 @@ def main():
     (home / 'index.html').write_text(
         '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        '<title>MLV Lab — Redirecting</title>\n'
+        '<title>MLV Lab — Redirecting</title>\n' + social_meta + '\n'
         '<script>window.location.replace("/#/home");</script>\n'
         '<meta http-equiv="refresh" content="0; url=/#/home">\n'
         '</head>\n<body>\n'
