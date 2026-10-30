@@ -638,22 +638,18 @@ test('the known short venue disambiguates other conference names in its citation
   assert.doesNotMatch(output, />ACL<\/strong>/);
 });
 
-test('stable logos work across years while annual vision logos do not leak into unrelated years', () => {
-  for (const venue of ['NeurIPS', 'ICLR', 'ICML', 'ACL']) {
-    const earlier = callVenue('publicationVenue', {venue_short: venue, year: 2020});
-    const current = callVenue('publicationVenue', {venue_short: venue, year: 2026});
-    assert.ok(earlier.logo, `${venue} should retain its year-neutral official mark`);
-    assert.equal(earlier.logo, current.logo);
-  }
-  for (const venue of ['ICCV', 'ECCV', 'CVPR', 'WACV']) {
-    const paper = {venue_short: venue, year: 1900};
-    assert.ok(!callVenue('publicationVenue', paper).logo, `${venue} must not borrow another year's logo`);
-    assert.doesNotMatch(callVenue('venueBadge', paper), /<img\b/);
-    assert.match(visibleText(callVenue('venueBadge', paper)), new RegExp(`${venue}\\s+1900`));
+test('venue badges preserve the conference and year without displaying logos', () => {
+  for (const venue of ['NeurIPS', 'ICCV', 'ECCV', 'AAAI', 'CVPR', 'ICLR', 'ICML', 'WACV',
+                       'IJCV', 'EMNLP', 'ACL', 'NAACL']) {
+    for (const year of [2020, 2025, 2026]) {
+      const badge = callVenue('venueBadge', {venue_short: venue, year});
+      assert.doesNotMatch(badge, /<img\b/);
+      assert.match(visibleText(badge), new RegExp(`${venue}\\s+${year}`));
+    }
   }
 });
 
-test('publication badges place the logo above the figure and keep awards to the venue right', () => {
+test('publication badges omit logos and keep awards to the venue right', () => {
   const {context} = setup();
   context.paper = {...snapshot.pubs[0], venue_short: 'NeurIPS',
     venue: 'Advances in Neural Information Processing Systems (NeurIPS), 2026.',
@@ -661,10 +657,10 @@ test('publication badges place the logo above the figure and keep awards to the 
   const output = vm.runInContext('pubRow(paper)', context);
   const meta = output.match(/<div class="pub-meta">([\s\S]*?)<\/div>/)[1];
   const citation = output.match(/<div class="venue">([\s\S]*?)<\/div>/)[1];
-  assert.match(meta, /<img\b/);
+  assert.doesNotMatch(meta, /<img\b/);
   assert.ok(meta.indexOf('pub-venue') < meta.indexOf('pub-distinction'), 'Award must follow its venue in the same visual row');
   assert.match(meta, />Oral<\/span>/);
-  assert.ok(output.indexOf('pub-meta') < output.indexOf('class="thumb'), 'Venue and logo should stay above the figure');
+  assert.ok(output.indexOf('pub-meta') < output.indexOf('class="thumb'), 'Venue badge should stay over the figure');
   assert.match(citation, /venue-acronym/);
   assert.doesNotMatch(citation, /<img\b/);
 });
