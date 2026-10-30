@@ -7,15 +7,17 @@ venue's appearance and always display a separate **Workshop** label.
 
 Only abbreviations in the full citation are bold and colored. Citation wording,
 years, workshop names, and acceptance/presentation details remain unchanged.
-Logos appear only in the badge above the paper's figure. Awards stay to its right.
+The figure badge uses the venue color as its background with white text and no
+logo. It remains a single 24px row over the figure, with awards to its right.
 
 ## Sources checked on 2026-10-29
 
 Colors below are drawn from official assets or sites, except the explicitly noted
 editorial choice. They are not all permanent, officially specified brand colors.
-Logo files are stored locally to avoid third-party loading dependencies.
+Original logo files remain stored locally as color-source references. They are
+not displayed. Logo display notes below describe the previous design.
 
-| Venue | Text color | Source and logo policy |
+| Venue | Badge background / citation color | Source and former logo policy |
 | --- | --- | --- |
 | NeurIPS | `#68448B` | [Official compact mark](https://neurips.cc/static/core/img/neurips-navbar-logo.svg), saved unchanged as `neurips.svg`; year-neutral. [Media kit](https://neurips.cc/public/MediaKit). |
 | ICCV | `#9E1E63` | ICCV 2025 official [poster template](https://media.eventhosts.cc/Conferences/ICCV2025/iccv25_poster_template.pptx), linked from [poster instructions](https://iccv.thecvf.com/Conferences/2025/PosterPrinting). `ppt/media/image1.png` extracted unchanged as `iccv-2025.png`; shown for 2025 only. |
@@ -32,12 +34,12 @@ Logo files are stored locally to avoid third-party loading dependencies.
 
 ## Maintenance
 
-`VENUE_BRANDS` in `template.html` holds each color and optional logo. The `logo`
-field is reserved for year-neutral marks; `logos` maps publication years to
-year-specific files. Unknown years fall back to colored text. Unknown venues and
-preprints retain the existing neutral style. `render.py` copies these files for
-both Notion builds and snapshot recovery builds.
+`VENUE_BRANDS` in `template.html` holds each label and color. The same color is
+used for the badge background and citation acronym. All current colors provide
+at least 4.5:1 contrast against the badge's white text. Unknown venues and
+preprints retain the existing neutral style. Notion field names and values do
+not need to change.
 
 When adding a venue, update the acronym matcher and registry together. Keep the
-original logo and source URL, verify year restrictions, and check both mobile
-and desktop badges with awards and workshop labels.
+source URL, verify white-text contrast, and check both mobile and desktop badges
+with awards and workshop labels.

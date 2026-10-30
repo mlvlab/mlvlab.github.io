@@ -278,10 +278,7 @@ table.list td a{color:var(--navy);font-weight:700}
 .pub .pub-venue,.pub .pub-distinction{display:block;box-sizing:border-box;height:24px;min-width:0;max-width:100%;padding:3px 6px;border-radius:2px;font-size:11.5px;line-height:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(15,31,56,.14)}
 .pub .pub-venue{position:relative;background:var(--navy);color:#fff}
 .pub .pub-venue.preprint{background:#EDF0F4;color:#49566A}
-.pub .pub-venue.branded{display:inline-flex;align-items:center;gap:4px;padding:3px 6px 3px 4px;background:#fff;color:var(--venue-color);border-left:2px solid var(--venue-color)}
-.pub .venue-logo{width:20px;height:18px;object-fit:contain;flex:none}
-.pub .venue-logo.wide{width:28px}
-.pub .venue-logo.dark{background:#253047;border-radius:3px;padding:2px;box-sizing:border-box}
+.pub .pub-venue.branded{background:var(--venue-color);color:#fff}
 .pub .venue-label{display:block;min-width:0;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pub .venue-name{white-space:nowrap}
 .pub .venue-workshop{display:inline;font-size:inherit;font-weight:500}
@@ -798,19 +795,19 @@ function newsInstitutionColors(html){
   return tokens.map(t=>t.html ?? institutionTextRange(t.text,t.offset,matches)).join('');
 }
 // Colors come from official marks/sites; see assets/venues/SOURCES.md for provenance.
-// Annual logos only appear on papers from that year. Unknown venues keep the neutral badge.
+// Badges use white text on venue colors without logos. Unknown venues keep the neutral badge.
 const VENUE_BRANDS = {
-  neurips:{label:'NeurIPS',color:'#68448B',logo:'neurips.svg'},
-  iccv:{label:'ICCV',color:'#9E1E63',logos:{2025:'iccv-2025.png'},wide:true},
-  eccv:{label:'ECCV',color:'#231F20',logos:{2026:'eccv-2026.svg'},wide:true},
+  neurips:{label:'NeurIPS',color:'#68448B'},
+  iccv:{label:'ICCV',color:'#9E1E63'},
+  eccv:{label:'ECCV',color:'#231F20'},
   aaai:{label:'AAAI',color:'#003973'},
   cvpr:{label:'CVPR',color:'#36567C'},
-  iclr:{label:'ICLR',color:'#387D25',logo:'iclr.svg'},
-  icml:{label:'ICML',color:'#2A419E',logo:'icml.svg',dark:true},
+  iclr:{label:'ICLR',color:'#387D25'},
+  icml:{label:'ICML',color:'#2A419E'},
   wacv:{label:'WACV',color:'#115D73'},
   ijcv:{label:'IJCV',color:'#2B6280'},
   emnlp:{label:'EMNLP',color:'#D12632'},
-  acl:{label:'ACL',color:'#C51920',logo:'acl.png'},
+  acl:{label:'ACL',color:'#C51920'},
   naacl:{label:'NAACL',color:'#02678F'},
 };
 function venueAcronyms(value){
@@ -827,11 +824,10 @@ function publicationVenue(p){
   const brand=VENUE_BRANDS[match.key];
   const workshop=match.workshop || /^workshops?$/i.test(p.type||'') || /\bworkshops?\b/i.test(short+' '+citation)
     || venueAcronyms(citation).some(m=>m.key===match.key && m.workshop);
-  const logo=brand.logo || (brand.logos||{})[p.year] || '';
   // Preserve track and named-workshop qualifiers entered in Notion.
   let label=shortMatch ? short.slice(0,match.start)+brand.label+short.slice(match.end) : short || brand.label;
   if(workshop) label=label.replace(/\bworkshops?\b/gi,'').replace(/\s+/g,' ').replace(/\s+\)/g,')').trim();
-  return {...brand,label,key:match.key,workshop,logo:logo ? 'assets/venues/'+logo : ''};
+  return {...brand,label,key:match.key,workshop};
 }
 function venueCitation(p){
   const text=String(p.venue||''), venue=publicationVenue(p);
@@ -846,7 +842,7 @@ function venueCitation(p){
 function venueBadge(p){
   const venue=publicationVenue(p);
   if(!venue) return `<span class="pub-venue${p.type==='Preprint'?' preprint':''}">${esc(p.venue_short)} <span class="pub-year">${esc(p.year)}</span></span>`;
-  return `<span class="pub-venue branded" style="--venue-color:${venue.color}">${venue.logo?`<img class="venue-logo${venue.wide?' wide':''}${venue.dark?' dark':''}" src="${venue.logo}" alt="">`:''}<span class="venue-label"><span class="venue-name">${esc(venue.label)}</span>${venue.workshop?' <span class="venue-workshop">Workshop</span>':''} <span class="pub-year">${esc(p.year)}</span></span></span>`;
+  return `<span class="pub-venue branded" style="--venue-color:${venue.color}"><span class="venue-label"><span class="venue-name">${esc(venue.label)}</span>${venue.workshop?' <span class="venue-workshop">Workshop</span>':''} <span class="pub-year">${esc(p.year)}</span></span></span>`;
 }
 function pubRow(p, activeAuthor){
   const nn = s => s.toLowerCase().split(/\s+/).filter(w=>w.replace('.','').length>1).join('').replace(/[^a-z]/g,'');
