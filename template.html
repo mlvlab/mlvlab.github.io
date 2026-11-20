@@ -445,7 +445,7 @@ footer{background:var(--navy-deep);color:rgba(255,255,255,.75);padding:36px 0 44
 footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 footer .fb{color:#fff;font-weight:700;font-size:15px;letter-spacing:.02em;text-transform:uppercase}
 footer a{color:#fff}
-.footer-logo{display:block;margin-top:8px}
+.footer-logo{display:block;align-self:center;margin-left:auto}
 .footer-logo img{width:140px;height:auto}
 .note{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,.5)}
 @media (prefers-reduced-motion:reduce){
@@ -473,11 +473,7 @@ footer a{color:#fff}
       <p id="ftaddress" style="margin-top:6px"></p>
       <p class="note" style="margin-top:10px">Last update: <span id="gen"></span></p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-      <a id="ftemail"></a>
-      <a id="ftscholar" href="#" target="_blank" rel="noopener">Google Scholar</a>
-      <a class="footer-logo" id="fthome" href="#/home" aria-label="MLV Lab @ KAIST home"><img src="assets/logo/kaist_logo_trans(white).png" width="396" height="110" alt="KAIST" decoding="async"></a>
-    </div>
+    <a class="footer-logo" id="fthome" href="#/home" aria-label="MLV Lab @ KAIST home"><img src="assets/logo/kaist_logo_trans(white).png" width="396" height="110" alt="KAIST" decoding="async"></a>
   </div>
 </footer>
 <div id="overlay"></div>
@@ -1195,11 +1191,7 @@ const AFTER = {home:homeAfter, people:peopleAfter, publications:pubsAfter, resea
 document.getElementById('tabs').innerHTML = TABS.map(([p,l])=>`<a href="#/${p}" data-p="${p}">${l}</a>`).join('');
 document.getElementById('ftname').textContent = S.lab_name;
 document.getElementById('ftaddress').textContent = (S.address_en || '').split('\n').slice(0,2).join(', ');
-document.getElementById('ftemail').textContent = S.pi_email;
-document.getElementById('ftemail').href = 'mailto:' + S.pi_email;
-document.getElementById('ftemail').hidden = !S.pi_email;
 document.getElementById('gen').textContent = D.generated;
-document.getElementById('ftscholar').href = S.scholar;
 document.getElementById('searchbtn').onclick = openSearch;
 document.getElementById('menubtn').onclick = ()=>setMenuOpen(!document.getElementById('tabs').classList.contains('open'));
 document.getElementById('tabs').addEventListener('click',onNavClick);
