@@ -92,7 +92,6 @@ button.menu svg{width:18px;height:18px}
 .banner h1{color:#fff}
 .banner .sub{margin-top:8px;font-size:14px;color:rgba(255,255,255,.85);letter-spacing:.02em}
 .banner.tall .sub{font-size:17px;max-width:60ch;margin-top:14px}
-.banner .cta{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;justify-content:center}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:6px;font-weight:700;font-size:13.5px;border:1px solid transparent;letter-spacing:.02em}
 .btn:hover{text-decoration:none;filter:brightness(1.08)}
 .btn.primary{background:#fff;color:var(--navy)}
@@ -615,8 +614,7 @@ function homePage(){
   const cur = D.people.filter(p=>p.status==='Current').length, alum = D.people.filter(p=>p.status==='Alumni').length;
   const tally = venueTally().map(([v,n])=>`<span><b>${n}</b>${esc(v)}</span>`).join('');
   const news = D.news.slice(0,S.home_news_count);
-  const cta = `<div class="cta"><a class="btn primary" href="#/publications">Publications</a><a class="btn ghost" href="#/people">People</a>${S.openings_open?`<a class="btn ghost" href="#/openings">Openings</a>`:''}</div>`;
-  return banner('hero',esc(S.lab_name),'School of Computing, KAIST',true,cta) + `
+  return banner('hero',esc(S.lab_name),'School of Computing, KAIST',true) + `
   <section class="block"><div class="wrap about">
     <div>
       <h2>About</h2>
