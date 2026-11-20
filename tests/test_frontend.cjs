@@ -99,6 +99,159 @@ function routeSetup({reduced = false, animation = true, highlights = []} = {}) {
   };
 }
 
+test('People cards include every interest and disclose extras with an accessible +N button', () => {
+  const {context} = setup();
+  const person = snapshot.people.find(p => p.name === 'Dohwan Ko');
+  for (const count of [0, 1, 3, 4, 7]) {
+    context.person = {...person, interests: Array.from({length: count}, (_, i) => `Interest ${i + 1} & <topic>`)};
+    const html = vm.runInContext('personCard(person)', context);
+    assert.equal((html.match(/class="chip soft(?: interest-extra)?"/g) || []).length, count);
+    for (let i = 1; i <= count; i++) assert.ok(html.includes(`Interest ${i} &amp; &lt;topic&gt;`));
+    assert.equal((html.match(/class="chip soft interest-extra"/g) || []).length, Math.max(0, count - 3));
+    if (count > 3) {
+      assert.ok(html.includes(`class="when-collapsed">+${count - 3}</span>`));
+      assert.doesNotMatch(html, /class="when-expanded">[+−-]\d/);
+      assert.match(html, /aria-expanded="false"/);
+      assert.ok(html.includes(`aria-controls="p${person.id}-interests"`));
+    } else assert.doesNotMatch(html, /interest-more/);
+    assert.match(html, /Show papers/);
+  }
+  const page = vm.runInContext('peoplePage()', context);
+  const card = page.match(new RegExp(`<article class="person" id="p${person.id}">([\\s\\S]*?)</article>`))[1];
+  assert.ok(card.includes('Large Language Models'), 'The actual four-interest member must show the fourth entry');
+});
+
+function peopleGridFixture() {
+  const classes = new Set();
+  const metrics = {height: 450, photo: 300, width: 1000};
+  const grid = {
+    classList: {add: name => classes.add(name), remove: name => classes.delete(name)},
+    getBoundingClientRect: () => ({width: metrics.width}),
+    querySelector: () => ({}),
+    querySelectorAll: selector => selector === '.person' ? cards : [],
+  };
+  const cards = [180, 100].map(fullBody => ({
+    fullBody,
+    style: {setProperty(name, value) { this[name] = value; }},
+    getBoundingClientRect: () => ({height: metrics.height}),
+    querySelector(selector) {
+      return {getBoundingClientRect: () => ({height: selector === '.photo' ? metrics.photo : selector === '.foot' ? 38
+        : classes.has('measure-bodies') ? this.fullBody : metrics.height - metrics.photo - 2})};
+    },
+  }));
+  return {grid, cards, metrics, classes};
+}
+
+test('extra interests use only their own photo space and preserve the original row height', () => {
+  const {context} = setup();
+  const {grid, cards, metrics, classes} = peopleGridFixture();
+  context.grid = grid;
+  const fit = () => vm.runInContext('fitPeopleGrid(grid)', context);
+  const heights = (expanded = true) => cards.map(card => expanded
+    ? [card.style['--person-expanded-height'], card.style['--person-expanded-photo-height']]
+    : [card.style['--person-height'], card.style['--person-photo-height']]);
+  fit();
+  assert.deepEqual(heights(false), [['450px', '300px'], ['450px', '300px']], 'Collapsed photos stay at their original size');
+  assert.deepEqual(heights(), [['450px', '268px'], ['450px', '300px']]);
+  fit();
+  assert.deepEqual(heights(), [['450px', '268px'], ['450px', '300px']], 'Repeated fitting must not accumulate cropping');
+  metrics.height = 400;
+  metrics.photo = 250;
+  fit();
+  assert.deepEqual(heights(), [['400px', '218px'], ['400px', '250px']], 'Narrower cards must be measured again');
+  cards[0].fullBody = 400;
+  fit();
+  assert.deepEqual(heights(), [['562px', '160px'], ['400px', '250px']], 'Only the overflowing card grows at the minimum photo height');
+  assert.deepEqual([...classes], ['fitted'], 'Temporary measuring styles must be removed');
+});
+
+test('extra interests expand on card hover, keyboard focus or tap and collapse predictably', () => {
+  const {context} = setup();
+  const target = () => ({
+    events: new Map(),
+    addEventListener(event, handler) { this.events.set(event, handler); },
+    removeEventListener(event) { this.events.delete(event); },
+  });
+  const card = target(), button = target(), classes = new Set();
+  card.classList = {
+    contains: name => classes.has(name),
+    toggle: (name, on) => on ? classes.add(name) : classes.delete(name),
+  };
+  card.contains = node => node === button;
+  button.closest = () => card;
+  button.dataset = {count: '4'};
+  button.attributes = {};
+  button.setAttribute = (name, value) => { button.attributes[name] = value; };
+  button.matches = () => true;
+  context.button = button;
+  const dispose = vm.runInContext('bindInterestDisclosure(button)', context);
+  const expanded = () => button.attributes['aria-expanded'];
+  card.events.get('pointerenter')({pointerType: 'mouse'});
+  assert.equal(expanded(), 'true');
+  assert.equal(classes.has('interests-hover'), true);
+  card.events.get('pointerleave')({pointerType: 'mouse'});
+  assert.equal(expanded(), 'false');
+  assert.equal(classes.has('interests-hover'), false);
+  card.events.get('pointerenter')({pointerType: 'touch'});
+  assert.equal(expanded(), 'false', 'Touch must not get stuck in a hover state');
+  button.events.get('click')();
+  assert.equal(expanded(), 'true');
+  button.events.get('click')();
+  assert.equal(expanded(), 'false', 'The second tap closes the disclosure');
+  card.events.get('focusin')({target: button});
+  assert.equal(expanded(), 'true');
+  card.events.get('focusout')({relatedTarget: button});
+  assert.equal(expanded(), 'true', 'Moving focus inside the card keeps interests visible');
+  card.events.get('focusout')({relatedTarget: null});
+  assert.equal(expanded(), 'false');
+  card.events.get('pointerenter')({pointerType: 'mouse'});
+  let stopped = false;
+  card.events.get('keydown')({key: 'Escape', stopPropagation() { stopped = true; }});
+  assert.equal(expanded(), 'false');
+  assert.equal(stopped, true);
+  dispose();
+  assert.equal(card.events.size + button.events.size, 0);
+});
+
+test('People refits on width and font changes and releases observers when leaving the tab', () => {
+  const app = routeSetup();
+  const {context} = app;
+  const {grid, metrics} = peopleGridFixture();
+  const originalQuery = context.document.querySelectorAll;
+  context.document.querySelectorAll = selector => selector === '.people-grid' ? [grid] : originalQuery(selector);
+  const frames = new Map(), fontEvents = new Map();
+  let nextFrame = 0, observer, fontReady;
+  context.requestAnimationFrame = callback => { const id = ++nextFrame; frames.set(id, callback); return id; };
+  context.cancelAnimationFrame = id => frames.delete(id);
+  context.window.removeEventListener = () => {};
+  context.document.fonts = {
+    ready: {then(callback) { fontReady = callback; }},
+    addEventListener: (event, callback) => fontEvents.set(event, callback),
+    removeEventListener: event => fontEvents.delete(event),
+  };
+  context.ResizeObserver = context.window.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; this.disconnected = false; observer = this; }
+    observe(target) { assert.equal(target, grid); }
+    disconnect() { this.disconnected = true; }
+  };
+  vm.runInContext('peopleAfter()', context);
+  observer.callback([{target: grid, contentRect: {width: metrics.width}}]);
+  assert.equal(frames.size, 0, 'Height-only changes must not schedule a resize loop');
+  metrics.width = 700;
+  observer.callback([{target: grid, contentRect: {width: metrics.width}}]);
+  fontEvents.get('loadingdone')();
+  assert.equal(frames.size, 1, 'Width and font events in the same frame should share one layout');
+  const staleLayout = [...frames.values()][0];
+  app.navigate('#/teaching');
+  assert.equal(observer.disconnected, true);
+  assert.equal(fontEvents.size, 0);
+  assert.equal(vm.runInContext('__peopleCleanup', context), null);
+  frames.clear();
+  staleLayout();
+  fontReady();
+  assert.equal(frames.size, 0, 'Late callbacks must not schedule work after leaving People');
+});
+
 test('rapid navigation replaces content immediately and cancels the prior entry animation', () => {
   const app = routeSetup();
   app.navigate('#/home');

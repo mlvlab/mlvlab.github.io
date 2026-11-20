@@ -202,10 +202,25 @@ button.chip.on{outline:2px solid var(--navy);outline-offset:1px}
 .links a:hover,.links button:hover{text-decoration:none;filter:brightness(1.1)}
 .links svg{width:13px;height:13px}
 .people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
-.person{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .15s ease,transform .15s ease}
+.people-grid.measure-interests .person .interest-extra,.people-grid.measure-interests .person .when-expanded{display:none}
+.people-grid.measure-interests .person .when-collapsed{display:inline}
+.people-grid.measure-bodies .person .body{flex:0 0 auto}
+.people-grid.measure-bodies .person .interest-extra{display:inline-flex}
+.people-grid.measure-bodies .person .when-collapsed{display:none}
+.people-grid.measure-bodies .person .when-expanded{display:inline}
+.people-grid.fitted .person{height:var(--person-height);align-self:start}
+.people-grid.fitted .person .photo{height:var(--person-photo-height);aspect-ratio:auto;transition:height .36s cubic-bezier(.22,.61,.36,1)}
+.people-grid.fitted .person .body{position:absolute;inset:var(--person-photo-height) 0 0;min-height:0;padding-bottom:calc(20px + var(--person-foot-height));background:#fff;transition:top .36s cubic-bezier(.22,.61,.36,1)}
+.people-grid.fitted .person .chips{min-height:0;overflow:hidden}
+.people-grid.fitted .person .foot{position:absolute;left:14px;right:14px;bottom:14px;margin-top:0}
+.people-grid.fitted .person.interests-open{height:var(--person-expanded-height)}
+.people-grid.fitted .person.interests-open .photo{height:var(--person-expanded-photo-height)}
+.people-grid.fitted .person.interests-open .body{top:var(--person-expanded-photo-height)}
+.person{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .4s cubic-bezier(.22,1,.36,1),transform .4s cubic-bezier(.22,1,.36,1),height .36s cubic-bezier(.22,.61,.36,1)}
+.person.rv.in{transition-delay:0s!important}
 .person:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
-.person .photo{aspect-ratio:4/5;background:var(--band);overflow:hidden;position:relative;display:block}
-.person .photo img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.person .photo{aspect-ratio:4/5;background:var(--band);overflow:hidden;position:relative;display:block;flex:none}
+.person .photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
 .person .photo .init{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:700;color:var(--muted)}
 .person .photo .ext{position:absolute;right:8px;top:8px;width:26px;height:26px;border-radius:999px;background:rgba(15,31,56,.75);color:#fff;display:flex;align-items:center;justify-content:center}
 .person .photo .ext svg{width:13px;height:13px}
@@ -214,7 +229,14 @@ button.chip.on{outline:2px solid var(--navy);outline-offset:1px}
 .person .name a{color:var(--navy)}
 .person .name small{font-weight:400;color:var(--muted);font-size:13px;margin-left:5px}
 .person .pos{font-size:13px;color:var(--muted)}
-.person .chips .chip{font-size:11px;padding:3px 7px}
+.person .chips .chip{font-size:11px;padding:3px 7px;white-space:normal;overflow-wrap:anywhere;min-width:0}
+.person .interest-extra,.person .when-expanded{display:none}
+.person.interests-open .interest-extra{display:inline-flex}
+.person.interests-open .when-collapsed{display:none}
+.person.interests-open .when-expanded{display:inline}
+.person .interest-more{color:var(--navy);font-weight:700;border:1px solid var(--line)}
+.person .interest-more:hover{background:var(--navy-soft)}
+.person.interests-hover .interest-more{visibility:hidden;pointer-events:none}
 .person .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;padding-top:10px;gap:6px}
 .person .icons{display:flex;gap:4px}
 .person .icons a{width:28px;height:28px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--navy);border:1px solid var(--line)}
@@ -517,13 +539,14 @@ function onNavClick(event){
 }
 
 /* ---------- routing ---------- */
-let __routeVersion = 0, __routeAnimation = null, __targetTimer = null;
+let __routeVersion = 0, __routeAnimation = null, __targetTimer = null, __peopleCleanup = null;
 function route(){
   const navigation = __routeVersion > 0;
   const version = ++__routeVersion;
   if(__routeAnimation){ __routeAnimation.cancel(); __routeAnimation=null; }
   if(__targetTimer!==null){ clearTimeout(__targetTimer); __targetTimer=null; }
   if(__io){ __io.disconnect(); __io=null; }
+  if(__peopleCleanup){ __peopleCleanup(); __peopleCleanup=null; }
   const h = location.hash.replace(/^#\/?/,'') || 'home';
   const [page, qs] = h.split('?'); const q = new URLSearchParams(qs||'');
   const r = RENDER[page] ? page : 'home';
@@ -681,7 +704,9 @@ function personCard(p){
     p.cv?`<a href="${esc(p.cv)}" target="_blank" rel="noopener" title="CV" aria-label="CV">${ICON.cv}</a>`:'',
   ].join('');
   const n = pubCount.get(p.id)||0;
-  const chips = p.interests.slice(0,3).map(i=>`<span class="chip soft">${esc(i)}</span>`).join('');
+  const extra = Math.max(0,p.interests.length-3);
+  const chips = p.interests.map((i,index)=>`<span class="chip soft${index>=3?' interest-extra':''}">${esc(i)}</span>`).join('')
+    + (extra?`<button type="button" class="chip soft interest-more" data-count="${extra}" aria-expanded="false" aria-controls="p${p.id}-interests" aria-label="Show ${extra} more research interests"><span class="when-collapsed">+${extra}</span><span class="when-expanded">Less</span></button>`:'');
   const initials = p.name.split(/\s+/).map(w=>w[0]).join('').slice(0,2);
   const photoInner = p.photo?`<img src="${img(p.photo)}" alt="${esc(p.name)}" loading="lazy">`:`<div class="init">${esc(initials)}</div>`;
   const photo = p.homepage
@@ -693,7 +718,7 @@ function personCard(p){
     <div class="body">
       <div class="name">${name}<small>${esc(p.ko)}</small></div>
       <div class="pos">${inline(p.position)}</div>
-      <div class="chips">${chips}</div>
+      <div class="chips" id="p${p.id}-interests">${chips}</div>
       <div class="foot"><div class="icons">${links}</div>${n?`<a class="pubs" href="#/publications?author=${p.id}">Show papers</a>`:''}</div>
     </div></article>`;
 }
@@ -724,6 +749,108 @@ function peoplePage(){
     ${alTable("Master's Alumni", alumni("Master's Alumni"))}
     <div style="height:32px"></div>
   </div>`;
+}
+
+function fitPeopleGrid(grid){
+  // Keep the collapsed rows fixed; expanded text borrows space from its own photo.
+  grid.classList.remove('fitted');
+  grid.classList.add('measure-interests');
+  const cards = [...grid.querySelectorAll('.person')].map(card=>{
+    const photo = card.querySelector('.photo'), body = card.querySelector('.body');
+    const height = card.getBoundingClientRect().height;
+    const photoHeight = photo.getBoundingClientRect().height;
+    const footHeight = card.querySelector('.foot').getBoundingClientRect().height;
+    const border = height-photoHeight-body.getBoundingClientRect().height;
+    return {card,body,height,photoHeight,footHeight,border};
+  });
+  grid.classList.remove('measure-interests');
+  grid.classList.add('measure-bodies');
+  const sizes = cards.map(({card,body,height,photoHeight,footHeight,border})=>{
+    const bodyHeight = body.getBoundingClientRect().height;
+    const photo = Math.max(160,Math.min(photoHeight,height-border-bodyHeight));
+    return {card,photo,height,photoHeight,footHeight,expandedHeight:Math.max(height,photo+bodyHeight+border)};
+  });
+  sizes.forEach(({card,photo,height,photoHeight,footHeight,expandedHeight})=>{
+    card.style.setProperty('--person-height',`${height}px`);
+    card.style.setProperty('--person-photo-height',`${photoHeight}px`);
+    card.style.setProperty('--person-expanded-height',`${expandedHeight}px`);
+    card.style.setProperty('--person-expanded-photo-height',`${photo}px`);
+    card.style.setProperty('--person-foot-height',`${footHeight}px`);
+  });
+  grid.classList.remove('measure-bodies');
+  grid.classList.add('fitted');
+}
+
+function bindInterestDisclosure(button){
+  const card = button.closest('.person');
+  let hovered = false, focused = false, opened = false;
+  const update = ()=>{
+    const expanded = hovered || focused || opened;
+    card.classList.toggle('interests-open',expanded);
+    card.classList.toggle('interests-hover',hovered);
+    button.setAttribute('aria-expanded',String(expanded));
+    button.setAttribute('aria-label',expanded?'Show fewer research interests':`Show ${button.dataset.count} more research interests`);
+  };
+  const listeners = [
+    [card,'pointerenter',event=>{ if(event.pointerType!=='touch'){ hovered=true; update(); } }],
+    [card,'pointerleave',event=>{ if(event.pointerType!=='touch'){ hovered=opened=false; update(); } }],
+    [card,'focusin',event=>{ if(event.target.matches(':focus-visible')){ focused=true; update(); } }],
+    [card,'focusout',event=>{ if(!card.contains(event.relatedTarget)){ focused=opened=false; update(); } }],
+    [button,'click',()=>{
+      opened=!card.classList.contains('interests-open');
+      hovered=focused=false;
+      update();
+    }],
+    [card,'keydown',event=>{
+      if(event.key==='Escape'){
+        hovered=focused=opened=false;
+        update();
+        event.stopPropagation();
+      }
+    }],
+  ];
+  listeners.forEach(([target,event,handler])=>target.addEventListener(event,handler));
+  return ()=>listeners.forEach(([target,event,handler])=>target.removeEventListener(event,handler));
+}
+
+function peopleAfter(){
+  const grids = [...document.querySelectorAll('.people-grid')]
+    .filter(grid=>grid.querySelector('.interest-more'));
+  if(!grids.length) return;
+  const unbind = grids.flatMap(grid=>[...grid.querySelectorAll('.interest-more')].map(bindInterestDisclosure));
+  let active = true, frame = null, observer = null;
+  const layout = ()=>{ if(active) grids.forEach(fitPeopleGrid); };
+  const schedule = ()=>{
+    if(!active || frame!==null) return;
+    frame = requestAnimationFrame(()=>{ frame=null; layout(); });
+  };
+  layout();
+  if('ResizeObserver' in window){
+    const widths = new WeakMap(grids.map(grid=>[grid,grid.getBoundingClientRect().width]));
+    observer = new ResizeObserver(entries=>{
+      let changed = false;
+      entries.forEach(({target,contentRect})=>{
+        if(widths.get(target)!==contentRect.width){
+          widths.set(target,contentRect.width);
+          changed = true;
+        }
+      });
+      if(changed) schedule();
+    });
+    grids.forEach(grid=>observer.observe(grid));
+  } else {
+    window.addEventListener('resize',schedule);
+  }
+  document.fonts?.ready.then(schedule);
+  document.fonts?.addEventListener('loadingdone',schedule);
+  __peopleCleanup = ()=>{
+    active = false;
+    if(frame!==null) cancelAnimationFrame(frame);
+    observer?.disconnect();
+    unbind.forEach(dispose=>dispose());
+    window.removeEventListener('resize',schedule);
+    document.fonts?.removeEventListener('loadingdone',schedule);
+  };
 }
 
 /* ---------- publications ---------- */
@@ -1047,7 +1174,7 @@ function openSearch(){
 }
 
 const RENDER = {home:homePage, people:peoplePage, publications:pubsPage, research:researchPage, teaching:teachingPage, photos:photosPage, mlvtv:tvPage, contact:contactPage, openings:openingsPage};
-const AFTER = {home:homeAfter, publications:pubsAfter, research:researchAfter, photos:photosAfter, mlvtv:tvAfter, openings:openingsAfter};
+const AFTER = {home:homeAfter, people:peopleAfter, publications:pubsAfter, research:researchAfter, photos:photosAfter, mlvtv:tvAfter, openings:openingsAfter};
 
 document.getElementById('tabs').innerHTML = TABS.map(([p,l])=>`<a href="#/${p}" data-p="${p}">${l}</a>`).join('');
 document.getElementById('brandlogo').src = img('logo');
