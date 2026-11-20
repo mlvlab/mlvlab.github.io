@@ -44,6 +44,10 @@ def main():
     full = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + head + '</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')
     OUT.mkdir(parents=True, exist_ok=True)
+    # Shared page banners use the repository photo independently of Notion's hero image.
+    background_target = OUT / 'assets' / 'bg'
+    background_target.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(HERE / 'assets' / 'bg' / 'soc2.jpeg', background_target / 'soc2.jpeg')
     # Always publish the share card, for both live Notion and snapshot builds.
     social_target = OUT / 'assets' / 'social'
     social_target.mkdir(parents=True, exist_ok=True)

@@ -26,6 +26,9 @@ Notion DB → fetch_notion.py → build/ 데이터 + site/img/ 이미지
 
 오른쪽 하단에는 투명 배경의 흰색 로고인 `assets/logo/kaist_logo_trans(white).png`를 별도 배경 없이 표시합니다. 이 파일도 일반 빌드와 `--snapshot` 빌드 모두에 포함합니다.
 
+Home, Research, Publications, Teaching, MLV TV, Contact, Openings의 상단 배경은 `assets/bg/soc2.jpeg`를 사용합니다. `render.py`가 일반 빌드와 `--snapshot` 빌드 모두에 이 파일을 포함하며, 공통 배경을 교체하려면 이 파일을 수정합니다.
+사진 속 `KRAFTON × SoC` 간판을 각 배너의 정중앙에 맞춥니다. `template.html`의 `.banner.hero`에서 `--hero-focus-x`와 `--hero-focus-y`가 원본 사진 속 간판 위치(가로 `0.515`, 세로 `0.78`)를 지정합니다. 화면 너비와 배너 높이에 맞춰 간판을 중앙에 두면서 여백이 생기지 않는 최소 크기를 계산하며, 블러는 사용하지 않습니다.
+
 ## 논문과 썸네일 추가
 
 ### 홈페이지 주소 공유 시 대표 이미지
@@ -140,8 +143,9 @@ People의 현재 멤버는 `Status = Current`를 사용합니다. `Group`은 기
 | `home_new_count` | 최신 뉴스에 NEW를 붙일 개수, 기본 5. **0이면 배지 숨김** |
 | `youtube_url`, `facebook_url`, `x_url` | SNS 링크 |
 | `youtube_icon_url`, `facebook_icon_url`, `x_icon_url` | SNS 아이콘 이미지 주소 |
-| `home_hero_image_url`, `home_collaborators_image_url` | 홈 대표 이미지·협력기관 이미지 주소 |
-| `research_banner_url`, `logo_url`, `banner_people_url`, `banner_photos_url` | 연구 배너·로고·People/Photos 배너 주소 |
+| `home_hero_image_url`, `research_banner_url` | 현재 상단 배너에 사용하지 않음. 공통 배경은 저장소의 `assets/bg/soc2.jpeg` 사용 |
+| `home_collaborators_image_url` | 홈 협력기관 이미지 주소 |
+| `logo_url`, `banner_people_url`, `banner_photos_url` | 로고·People/Photos 배너 주소 |
 | `youtube_channel_id`, `youtube_auto_sync` | 자동 수집할 채널 ID와 사용 여부. 문자열 `false`로 자동 수집 중지 |
 
 `home_intro`, `contact_address_en`, `contact_address_ko`, `openings_en`, `openings_ko`는 **행의 페이지 본문이 있으면 본문을 우선**합니다. 그 밖의 행도 Value가 `(`로 시작하면 본문을 읽습니다. 본문을 사용하는 행에서 Value만 바꾸고 결과가 그대로라면 페이지 안쪽 내용을 확인하세요.
