@@ -49,6 +49,11 @@ def main():
     social_target.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(HERE / 'assets' / 'social' / 'mlv-lab-20261030.png',
                     social_target / 'mlv-lab-20261030.png')
+    # Header and footer logos are published from the repository for every build.
+    logo_target = OUT / 'assets' / 'logo'
+    logo_target.mkdir(parents=True, exist_ok=True)
+    for name in ('mlv_logo_white.png', 'mlv_logo_blue.png', 'kaist_logo_trans(white).png'):
+        shutil.copyfile(HERE / 'assets' / 'logo' / name, logo_target / name)
     # Repository-owned venue marks are independent of Notion's expiring asset URLs.
     venue_assets = HERE / 'assets' / 'venues'
     if venue_assets.exists():

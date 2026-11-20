@@ -22,6 +22,10 @@ Notion DB → fetch_notion.py → build/ 데이터 + site/img/ 이미지
 
 레이아웃, 메뉴, 고정 안내 문구는 `template.html`에서 관리합니다. `main`에 변경을 올리면 자동 빌드가 시작됩니다. 도메인 설정은 콘텐츠 관리와 별도이며 이 저장소의 이미지 보존·백업 작업에서 변경하지 않습니다.
 
+상단 로고는 `assets/logo/`의 PNG 파일로 관리합니다. 기본 상태에서는 `mlv_logo_white.png`, 스크롤하거나 모바일 메뉴를 열어 헤더 배경이 흰색으로 바뀌면 `mlv_logo_blue.png`를 표시합니다. `render.py`가 일반 빌드와 `--snapshot` 빌드 모두에서 두 파일을 배포 폴더에 복사합니다.
+
+오른쪽 하단에는 투명 배경의 흰색 로고인 `assets/logo/kaist_logo_trans(white).png`를 별도 배경 없이 표시합니다. 이 파일도 일반 빌드와 `--snapshot` 빌드 모두에 포함합니다.
+
 ## 논문과 썸네일 추가
 
 ### 홈페이지 주소 공유 시 대표 이미지
