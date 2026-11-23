@@ -123,12 +123,14 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 
 ### 정수 순번으로 전환하기
 
-People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. 전환할 때 각 DB에서 기존 Order가 가장 큰 행을 1번으로 삼고, 다음으로 큰 행부터 2, 3, …을 부여합니다. 기존 번호가 비어 있던 행은 마지막에 둡니다. 복제본 표는 새 Order 오름차순으로 확인합니다. 홈페이지는 기존 배포 순서를 보존하도록 People·Topics·Figures·Photos·Highlights·수동 등록 영상은 새 번호 내림차순, 논문은 최신 연도 안에서 새 번호 내림차순, 뉴스는 최신 날짜 안에서 새 번호 오름차순으로 표시합니다. Teaching과 Site Content에는 Order가 없습니다.
+People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. People을 제외한 DB는 전환할 때 기존 Order가 가장 큰 행을 1번으로 삼고, 다음으로 큰 행부터 2, 3, …을 부여합니다. 기존 번호가 비어 있던 행은 마지막에 둡니다. 복제본 표는 새 Order 오름차순으로 확인합니다. 홈페이지는 기존 배포 순서를 보존하도록 Topics·Figures·Photos·Highlights·수동 등록 영상은 새 번호 내림차순, 논문은 최신 연도 안에서 새 번호 내림차순, 뉴스는 최신 날짜 안에서 새 번호 오름차순으로 표시합니다. Teaching과 Site Content에는 Order가 없습니다.
 
 1. GitHub Actions 저장소 변수 `NOTION_INTEGER_ORDER`의 기본값은 이전 정렬입니다. 운영 DB를 전환할 때 이 값을 `migrating`으로 설정하고 진행 중인 빌드가 끝난 뒤 기존 Order 편집을 잠시 멈춥니다. 전환 중 새 빌드는 배포 전에 중단됩니다.
 2. 개인 워크스페이스의 복제본에서 순번을 검증했다면 사용자가 수정한 테이블들을 운영 페이지의 해당 테이블과 교체합니다. 원래 테이블에서 직접 변환하는 방법도 있습니다. 이 경우 쓰기 권한이 있는 운영 노션 연결의 `NOTION_TOKEN`을 로컬 환경에 설정합니다. 해당 운영 페이지 ID에 맞춰 기존 Order 내림차순으로 산출한 변경표로 `python migrate_order.py /path/to/20261123_order_changes.csv`를 실행해 변경 건수를 확인한 뒤 같은 명령에 `--apply`를 붙입니다. 기존 페이지의 Order만 갱신합니다. 중단되면 동일한 변경표로 재실행할 수 있습니다. 새로 번호를 받은 항목이나 충돌이 발견되면 최신 내보내기로 변경표를 다시 준비합니다.
 3. 검증이 끝나면 변수를 `true`로 설정하고 빌드를 실행합니다. 이때부터 배포용 노션 연결에도 페이지 수정 권한이 필요합니다. 빌드는 빈 번호를 생성 시각 순서로 채우고(동시 생성은 페이지 ID순), 저장된 양의 정수를 기준으로 정렬합니다. ZIP 작업에서 추가할 때는 처음부터 번호를 기록할 수 있습니다.
 
+
+People은 김현우 교수님이 1번이고, 이번 재배정에서는 2번부터 졸업생, 이어서 기존 순서대로 현 구성원에게 정수를 부여합니다. 현 구성원은 그룹 안에서 `Order` 오름차순입니다. 박사·석사 졸업생 표는 각각 `Graduated`의 연월 내림차순, 같은 연월은 `Order` 오름차순이며, 졸업 연월이 비어 있으면 마지막에 표시합니다.
 
 People의 현재 멤버는 `Status = Current`를 사용합니다. `Group`은 기존 값인 `Faculty`, `Post-doctoral researcher`, `Ph.D. Student`, `Master Student`, `Undergraduate Student`, `Intern`, `Doctoral Alumni`, `Master's Alumni`를 유지해 주세요. 임의의 새 그룹 이름은 현재 템플릿에 표시되지 않을 수 있습니다. 교수 소개는 첫 번째 `Faculty` 행의 본문에서 Heading 2인 **About Me**, **Awards** 아래 내용을 읽습니다.
 

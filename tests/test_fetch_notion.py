@@ -146,7 +146,7 @@ class ImageFallbackTests(unittest.TestCase):
         with patch.object(module, 'api') as api:
             display = module.ordered_rows(rows, 'people', True)
             api.assert_called_once_with('PATCH', '/pages/b', {'properties': {'Order': {'number': 19}}})
-            self.assertEqual([r['id'] for r in display], ['b', 'a'])
+            self.assertEqual([r['id'] for r in display], ['a', 'b'])
             module.ordered_rows(rows, 'people', True)
             self.assertEqual(api.call_count, 1)
 
@@ -168,7 +168,7 @@ class ImageFallbackTests(unittest.TestCase):
         old[2]['properties']['Order']['number'] = 3.5
         new = [self.row('first', Order=3, Year=2026), self.row('second', Order=1, Year=2025),
                self.row('third', Order=2, Year=2026)]
-        for table in ('people', 'publications', 'topics', 'news', 'photos', 'videos', 'highlights', 'figures'):
+        for table in ('publications', 'topics', 'news', 'photos', 'videos', 'highlights', 'figures'):
             with self.subTest(table=table):
                 before = module.ordered_rows(old, table, False)
                 after = module.ordered_rows(new, table, True)

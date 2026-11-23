@@ -734,11 +734,23 @@ function personCard(p){
       <div class="foot"><div class="icons">${links}</div>${n?`<a class="pubs" href="#/publications?author=${p.id}">Show papers</a>`:''}</div>
     </div></article>`;
 }
+function graduationMonth(value){
+  const text = (value || '').trim();
+  const numeric = text.match(/^(\d{4})-(0?[1-9]|1[0-2])(?:-\d{2})?$/);
+  if(numeric) return Number(numeric[1])*12 + Number(numeric[2]);
+  const named = text.match(/^([A-Za-z]+)\s+(?:in\s+)?(\d{4})$/i);
+  if(!named) return 0;
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const month = months.indexOf(named[1].slice(0,3).toLowerCase());
+  return month < 0 ? 0 : Number(named[2])*12 + month + 1;
+}
 function peoplePage(){
   const pi = D.people.find(p=>p.group==='Faculty');
   const cur = D.people.filter(p=>p.status==='Current');
   const groups = GROUPS.map(([g,label])=>{ const list=cur.filter(p=>p.group===g); if(!list.length) return ''; return `<div class="group-head" id="g-${g.replace(/\W+/g,'-')}"><h2>${label}</h2><span class="label">${list.length}</span></div><div class="people-grid">${list.map(personCard).join('')}</div>`; }).join('');
-  const alumni = (g)=>D.people.filter(p=>p.group===g);
+  // People arrives in ascending Notion Order. Stable sorting preserves that order within each month.
+  const alumni = (g)=>D.people.filter(p=>p.group===g)
+    .sort((a,b)=>graduationMonth(b.graduated) - graduationMonth(a.graduated));
   const alTable = (title,list)=>`<div class="group-head"><h2>${title}</h2><span class="label">${list.length}</span></div><div class="tablewrap"><table class="list"><thead><tr><th>Name</th><th>이름</th><th>Graduated</th><th>Now</th><th></th></tr></thead><tbody>${list.map(p=>`<tr><td>${p.homepage?`<a href="${esc(p.homepage)}" target="_blank" rel="noopener">${esc(p.name)}</a>`:esc(p.name)}</td><td class="mono">${esc(p.ko)}</td><td class="mono">${esc(p.graduated)}</td><td>${esc(p.after.replace(/^is now /,''))}</td><td class="mono">${pubCount.get(p.id)?`<a href="#/publications?author=${p.id}">Show papers</a>`:''}</td></tr>`).join('')}</tbody></table></div>`;
   return banner('banner_people','People',`${cur.length} members · ${D.people.length-cur.length} alumni`) + `<div class="wrap">
     <div class="group-head"><h2>Faculty</h2></div>

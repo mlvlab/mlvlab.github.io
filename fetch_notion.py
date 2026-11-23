@@ -258,9 +258,8 @@ def assign_integer_orders(rows):
 def ordered_rows(rows, table, integer_order):
     if integer_order:
         assign_integer_orders(rows)
-        # Reversing the stored numbers also reverses the comparator. News used
-        # descending Order within a date; the other tables used ascending Order.
-        ordered = sort_rows(visible(rows), desc=(table != 'news'))
+        # People always uses ascending Order. News uses it within each date.
+        ordered = sort_rows(visible(rows), desc=(table not in ('people', 'news')))
         if table == 'publications':
             ordered.sort(key=lambda r: prop(r['properties'], 'Year', default=0) or 0, reverse=True)
         return ordered

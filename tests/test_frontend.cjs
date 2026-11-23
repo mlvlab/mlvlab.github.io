@@ -99,6 +99,22 @@ function routeSetup({reduced = false, animation = true, highlights = []} = {}) {
   };
 }
 
+test('alumni tables show recent graduation months first and keep People Order for ties', () => {
+  const {context} = setup();
+  const html = vm.runInContext(`(() => {
+    const faculty = D.people.find(p => p.group === 'Faculty');
+    const sample = D.people.find(p => p.group === 'Doctoral Alumni');
+    D.people = [faculty, ...['Doctoral Alumni', "Master's Alumni"].flatMap(group =>
+      ['', 'Aug in 2025', 'Feb in 2026', '2026-02', 'Sep in 2026'].map((graduated, i) =>
+        ({...sample, group, graduated, name: group.slice(0, 1) + 'Example' + i})))];
+    return peoplePage();
+  })()`, context);
+  for (const prefix of ['D', 'M']) {
+    const names = html.match(new RegExp(prefix + 'Example[0-4]', 'g'));
+    assert.deepEqual(names, [4, 2, 3, 1, 0].map(i => prefix + 'Example' + i));
+  }
+});
+
 test('People cards include every interest and disclose extras with an accessible +N button', () => {
   const {context} = setup();
   const person = snapshot.people.find(p => p.name === 'Dohwan Ko');
