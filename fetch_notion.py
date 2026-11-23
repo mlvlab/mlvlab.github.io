@@ -232,6 +232,41 @@ def sort_pubs(rows):
         return (-year, order if order is not None else float('-inf'), tuple(-ord(c) for c in created))
     return sorted(rows, key=key)
 
+def assign_integer_orders(rows):
+    """Allocate blanks oldest first, including hidden rows. A partial run can be resumed."""
+    used = set()
+    pending = []
+    for row in rows:
+        field = row['properties'].get('Order', {})
+        if field.get('type') != 'number':
+            raise ValueError(f"Expected numeric Order on {row['id']}")
+        number = field['number']
+        if number is None:
+            pending.append(row)
+        elif number < 1 or int(number) != number or number in used:
+            raise ValueError(f"Invalid or duplicate integer Order on {row['id']}: {number}")
+        else:
+            used.add(int(number))
+
+    maximum = max(used, default=0)
+    for row in sorted(pending, key=lambda r: (r['created_time'], r['id'])):
+        maximum += 1
+        api('PATCH', '/pages/' + row['id'], {'properties': {'Order': {'number': maximum}}})
+        row['properties']['Order']['number'] = maximum
+
+
+def ordered_rows(rows, table, integer_order):
+    if integer_order:
+        assign_integer_orders(rows)
+        ordered = sort_rows(visible(rows), desc=True)
+        if table == 'publications':
+            ordered.sort(key=lambda r: prop(r['properties'], 'Year', default=0) or 0, reverse=True)
+        return ordered
+    if table == 'publications':
+        return sort_pubs(visible(rows))
+    return sort_rows(visible(rows), desc=(table == 'news'))
+
+
 def visible(rows):
     return [r for r in rows if prop(r['properties'], 'Show on Site', default=True) is not False]
 
@@ -386,6 +421,12 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--no-images', action='store_true'); args = ap.parse_args()
     if not TOKEN:
         sys.exit('NOTION_TOKEN is not set. Create an internal integration at notion.so/profile/integrations and share the "MLV Lab homepage DB" page with it.')
+    mode = os.environ.get('NOTION_INTEGER_ORDER', '').strip().lower()
+    if mode == 'migrating':
+        sys.exit('Order migration in progress; keeping the last published site.')
+    if mode not in ('', 'false', 'true'):
+        sys.exit('NOTION_INTEGER_ORDER must be false, migrating or true.')
+    integer_order = mode == 'true'
     ds = CFG['data_sources']; no_img = args.no_images
     A = {}   # asset key → relative path (the template's image map)
     SNAP_MATCHES.clear(); SNAP_USED.clear()
@@ -394,7 +435,7 @@ def main():
 
     # ---- People
     people, id_to_person = [], {}
-    rows = sort_rows(visible(query_all(ds['people'])))
+    rows = ordered_rows(query_all(ds['people']), 'people', integer_order)
     for i, r in enumerate(rows, 1):
         p = r['properties']; name = prop(p, 'Name')
         key = f'person:{i}'
@@ -424,9 +465,9 @@ def main():
         people.append(person); id_to_person[r['id']] = i
 
     # ---- Research figures (needed for publication thumbnails)
-    fig_rows = sort_rows(visible(query_all(ds['figures'])))
+    fig_rows = ordered_rows(query_all(ds['figures']), 'figures', integer_order)
     fig_by_id, fig_url_to_key = {}, {}
-    topic_rows = sort_rows(visible(query_all(ds['topics'])))
+    topic_rows = ordered_rows(query_all(ds['topics']), 'topics', integer_order)
     topic_index = {r['id']: n for n, r in enumerate(topic_rows, 1)}
     per_topic_count = {}
     for r in fig_rows:
@@ -441,7 +482,7 @@ def main():
 
     # ---- Publications
     pubs, pub_index = [], {}
-    rows = sort_pubs(visible(query_all(ds['publications'])))
+    rows = ordered_rows(query_all(ds['publications']), 'publications', integer_order)
     for i, r in enumerate(rows, 1):
         p = r['properties']; pub_index[r['id']] = i
         links = {}
@@ -501,7 +542,7 @@ def main():
 
     # ---- News
     news = []
-    for r in sort_rows(visible(query_all(ds['news'])), desc=True):
+    for r in ordered_rows(query_all(ds['news']), 'news', integer_order):
         p = r['properties']
         news.append({'date': prop(p, 'Date'), **news_content(p), 'new': bool(prop(p, 'New', default=False))})
     news.sort(key=lambda n: n['date'], reverse=True)
@@ -516,7 +557,7 @@ def main():
 
     # ---- Photos
     photos = []
-    for i, r in enumerate(sort_rows(visible(query_all(ds['photos']))), 0):
+    for i, r in enumerate(ordered_rows(query_all(ds['photos']), 'photos', integer_order), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'photo:{i}'
         path = save_image(key, 'photo', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; photos.append({'img': key, 'caption': cap})
@@ -532,13 +573,13 @@ def main():
     all_video_rows = query_all(ds['videos'])
     shown_rows = visible(all_video_rows)
     hidden_video_ids = {video_id(r['properties']) for r in all_video_rows if r not in shown_rows}   # rows with "Show on Site" unchecked also block the auto-sync
-    for r in sort_rows(shown_rows):
+    for r in ordered_rows(all_video_rows, 'videos', integer_order):
         p = r['properties']; vid = video_id(p)
         videos.append({'id': vid, 'title': prop(p, 'Title'), 'url': prop(p, 'YouTube URL') or f'https://www.youtube.com/watch?v={vid}', 'thumb': yt_thumb(vid, source_id=r['id'])})
 
     # ---- Highlights
     highlights = []
-    for i, r in enumerate(sort_rows(visible(query_all(ds['highlights']))), 0):
+    for i, r in enumerate(ordered_rows(query_all(ds['highlights']), 'highlights', integer_order), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'slide:{i}'
         path = save_image(key, 'slide', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; highlights.append({'img': key, 'caption': cap, 'link': prop(p, 'Link')})

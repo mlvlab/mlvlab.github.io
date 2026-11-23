@@ -34,6 +34,7 @@ jobs:
           node tests/test_frontend.cjs
       - name: Fetch Notion databases
         env:
+          NOTION_INTEGER_ORDER: ${{ vars.NOTION_INTEGER_ORDER }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
         run: python fetch_notion.py
       - name: Render site

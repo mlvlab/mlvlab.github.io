@@ -133,6 +133,33 @@ class ImageFallbackTests(unittest.TestCase):
         return json.loads((self.root / 'build' / 'site_data.json').read_text()), \
             json.loads((self.root / 'build' / 'assets.json').read_text())
 
+    def test_integer_orders_include_hidden_rows_and_resume_after_partial_write(self):
+        module = self.load()
+        existing = self.row('hidden', Order=17)
+        existing['properties']['Show on Site'] = {'type': 'checkbox', 'checkbox': False}
+        rows = [self.row('b'), existing, self.row('a')]
+        for row in (rows[0], rows[2]):
+            row['properties']['Order'] = {'type': 'number', 'number': None}
+        with patch.object(module, 'api', side_effect=[{}, OSError('offline')]):
+            with self.assertRaises(OSError):
+                module.ordered_rows(rows, 'people', True)
+        with patch.object(module, 'api') as api:
+            display = module.ordered_rows(rows, 'people', True)
+            api.assert_called_once_with('PATCH', '/pages/b', {'properties': {'Order': {'number': 19}}})
+            self.assertEqual([r['id'] for r in display], ['b', 'a'])
+            module.ordered_rows(rows, 'people', True)
+            self.assertEqual(api.call_count, 1)
+
+    def test_integer_order_keeps_publication_year_and_legacy_direction(self):
+        module = self.load()
+        rows = [self.row('a', Order=3, Year=2025), self.row('b', Order=1, Year=2026),
+                self.row('c', Order=2, Year=2026)]
+        with patch.object(module, 'api') as api:
+            for mode, expected in [(True, ['c', 'b', 'a']), (False, ['b', 'c', 'a'])]:
+                display = module.ordered_rows(rows, 'publications', mode)
+                self.assertEqual([r['id'] for r in display], expected)
+            api.assert_not_called()
+
     def test_news_display_text_preserves_native_formatting_and_all_extra_links(self):
         module = self.load()
         row = self.row('news-row', **{'News title': 'Original title', 'Date': '2026-10-29',

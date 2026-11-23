@@ -58,7 +58,7 @@ Publications에 새 행을 만들고 다음 항목을 입력합니다.
 | `Presentation`, `Collaboration`, `Note` | Oral 등 발표 정보, 협력기관, 추가 설명 |
 | `Order`, `Show on Site` | 순서와 표시 여부 |
 
-- **최신 연도부터** 표시합니다. 같은 연도는 **Order가 빈 논문 먼저 → Order가 작은 논문부터**이며, 동일한 조건에서는 최근 생성한 행이 먼저입니다. 새 논문을 해당 연도 맨 위에 넣으려면 `Year`를 입력하고 `Order`를 비워 두면 됩니다.
+- 최신 연도부터 표시합니다. 정수 순번으로 전환한 뒤에는 같은 연도에서 큰 `Order`가 먼저입니다. 새 논문은 DB 전체 최댓값에 1을 더하거나, 빈칸으로 두어 다음 자동 빌드에서 번호를 받습니다.
 - 썸네일은 `Thumbnail File`에 한 장을 직접 올리는 방법이 가장 간단합니다. 기존 Figures 이미지와의 연결이나 `Thumbnail` / `Thumbnail URL`도 읽지만 외부 URL의 접근 권한·만료에 영향을 받습니다.
 - `MLV Members`를 연결해야 멤버별 논문 조회에 포함됩니다. 저자 이름에 버튼이 붙으려면 `Authors`의 이름도 People의 영문 이름과 맞아야 합니다.
 - Research 페이지의 **Representative papers**에는 Topics DB의 `Related Publications` 관계로 추가합니다. Publications의 `Research Topics`만 설정하는 것은 주제 필터 연결입니다.
@@ -121,7 +121,14 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 | MLV TV | `Title`, `YouTube ID`, `YouTube URL`. 표준 watch/youtu.be URL을 쓰거나 11자리 ID를 입력 |
 | Site Content | `Key`, `Value`, 일부 행의 페이지 본문. 아래 표 참고 |
 
-People·Topics·Figures·Photos·Highlights·MLV TV는 **Order가 작은 순서**이며 빈 값은 0으로 취급합니다. Notion 화면에서 행을 드래그한 순서가 곧 홈페이지 순서는 아닙니다.
+### 정수 순번으로 전환하기
+
+People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. 번호가 클수록 먼저 표시하며 논문은 연도, 뉴스는 날짜를 먼저 비교합니다. 노션 표에서도 같은 순서를 보려면 해당 뷰에서 논문은 Year 내림차순, 뉴스는 Date 내림차순을 먼저 두고 Order를 내림차순으로 설정합니다. Teaching과 Site Content에는 Order가 없습니다.
+
+1. GitHub Actions 저장소 변수 `NOTION_INTEGER_ORDER`의 기본값은 이전 정렬입니다. 운영 DB를 전환할 때 이 값을 `migrating`으로 설정하고 진행 중인 빌드가 끝난 뒤 기존 Order 편집을 잠시 멈춥니다. 전환 중 새 빌드는 배포 전에 중단됩니다.
+2. 쓰기 권한이 있는 운영 노션 연결의 `NOTION_TOKEN`을 로컬 환경에 설정합니다. 제공된 변경표로 `python migrate_order.py /path/to/20261123_order_changes.csv`를 실행해 변경 건수를 확인한 뒤 같은 명령에 `--apply`를 붙입니다. 기존 페이지의 Order만 갱신합니다. 중단되면 동일한 변경표로 재실행할 수 있습니다. 새로 번호를 받은 항목이나 충돌이 발견되면 최신 내보내기로 변경표를 다시 준비합니다.
+3. 검증이 끝나면 변수를 `true`로 설정하고 빌드를 실행합니다. 이때부터 배포용 노션 연결에도 페이지 수정 권한이 필요합니다. 빌드는 빈 번호를 생성 시각 순서로 채우고(동시 생성은 페이지 ID순), 저장된 양의 정수를 기준으로 정렬합니다. ZIP 작업에서 추가할 때는 처음부터 번호를 기록할 수 있습니다.
+
 
 People의 현재 멤버는 `Status = Current`를 사용합니다. `Group`은 기존 값인 `Faculty`, `Post-doctoral researcher`, `Ph.D. Student`, `Master Student`, `Undergraduate Student`, `Intern`, `Doctoral Alumni`, `Master's Alumni`를 유지해 주세요. 임의의 새 그룹 이름은 현재 템플릿에 표시되지 않을 수 있습니다. 교수 소개는 첫 번째 `Faculty` 행의 본문에서 Heading 2인 **About Me**, **Awards** 아래 내용을 읽습니다.
 
