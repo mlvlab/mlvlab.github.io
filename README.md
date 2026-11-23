@@ -58,7 +58,7 @@ Publications에 새 행을 만들고 다음 항목을 입력합니다.
 | `Presentation`, `Collaboration`, `Note` | Oral 등 발표 정보, 협력기관, 추가 설명 |
 | `Order`, `Show on Site` | 순서와 표시 여부 |
 
-- 최신 연도부터 표시합니다. 정수 순번으로 전환한 뒤에는 같은 연도에서 큰 `Order`가 먼저입니다. 새 논문은 DB 전체 최댓값에 1을 더하거나, 빈칸으로 두어 다음 자동 빌드에서 번호를 받습니다.
+- 정수 순번으로 전환한 테이블은 전체 논문을 `Order` 내림차순으로 표시합니다. 연도 필터에서도 같은 순서를 유지합니다. 새 논문은 DB 전체 최댓값에 1을 더하거나, 빈칸으로 두어 다음 자동 빌드에서 번호를 받습니다.
 - 썸네일은 `Thumbnail File`에 한 장을 직접 올리는 방법이 가장 간단합니다. 기존 Figures 이미지와의 연결이나 `Thumbnail` / `Thumbnail URL`도 읽지만 외부 URL의 접근 권한·만료에 영향을 받습니다.
 - `MLV Members`를 연결해야 멤버별 논문 조회에 포함됩니다. 저자 이름에 버튼이 붙으려면 `Authors`의 이름도 People의 영문 이름과 맞아야 합니다.
 - Research 페이지의 **Representative papers**에는 Topics DB의 `Related Publications` 관계로 추가합니다. Publications의 `Research Topics`만 설정하는 것은 주제 필터 연결입니다.
@@ -112,7 +112,7 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 | DB | 주요 열과 운영 방법 |
 |---|---|
 | People | `Name`, `Korean Name`, `Group`, `Status`, `Position`, `Email`, `Tel`, `Google Scholar`, `Homepage`, `CV`, `Research Interests`, `Photo File`. 졸업생은 `Graduated`, `After Graduation`도 사용 |
-| News | `News title`, `Date`, 서식이 필요한 소식은 선택적으로 `Display text`, 추가 링크는 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 날짜가 최신인 소식부터 표시하고 같은 날짜는 기존 번호에서 큰 순서, 역순으로 정수화한 뒤에는 작은 순서 |
+| News | `News title`, `Date`, 서식이 필요한 소식은 선택적으로 `Display text`, 추가 링크는 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 전환된 테이블은 날짜와 관계없이 `Order`가 큰 소식부터 표시 |
 | Topics | `Topic`, `Description`, `Related Publications` |
 | Figures | `Caption`, `Image File`, `Topic`, 선택적으로 `Publication`. Topic·Publication 관계는 각각 첫 번째 항목만 사용 |
 | Teaching | `Semester`, `Year`, `Term`, `Course`, `Code`, `Note`, `Institution`. 연도 내림차순, 같은 해는 Fall 먼저, 다음 Course 이름순 |
@@ -123,12 +123,17 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 
 ### 정수 순번으로 전환하기
 
-People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. People을 제외한 DB는 전환할 때 기존 Order가 가장 큰 행을 1번으로 삼고, 다음으로 큰 행부터 2, 3, …을 부여합니다. 기존 번호가 비어 있던 행은 마지막에 둡니다. 복제본 표는 새 Order 오름차순으로 확인합니다. 홈페이지는 기존 배포 순서를 보존하도록 Topics·Figures·Photos·Highlights·수동 등록 영상은 새 번호 내림차순, 논문은 최신 연도 안에서 새 번호 내림차순, 뉴스는 최신 날짜 안에서 새 번호 오름차순으로 표시합니다. Teaching과 Site Content에는 Order가 없습니다.
+새 행에는 해당 DB의 숨김 행을 포함한 최댓값 + 1을 입력합니다. 빈 DB는 1부터 시작합니다. 정수 순번을 사용하는 DB에서 Order가 비어 있으면 빌드가 생성 시각 순으로 번호를 저장합니다. 이때 배포용 노션 연결에 페이지 수정 권한이 필요합니다. Teaching과 Site Content에는 Order가 없습니다.
 
-1. GitHub Actions 저장소 변수 `NOTION_INTEGER_ORDER`의 기본값은 이전 정렬입니다. 운영 DB를 전환할 때 이 값을 `migrating`으로 설정하고 진행 중인 빌드가 끝난 뒤 기존 Order 편집을 잠시 멈춥니다. 전환 중 새 빌드는 배포 전에 중단됩니다.
-2. 개인 워크스페이스의 복제본에서 순번을 검증했다면 사용자가 수정한 테이블들을 운영 페이지의 해당 테이블과 교체합니다. 원래 테이블에서 직접 변환하는 방법도 있습니다. 이 경우 쓰기 권한이 있는 운영 노션 연결의 `NOTION_TOKEN`을 로컬 환경에 설정합니다. 해당 운영 페이지 ID에 맞춰 기존 Order 내림차순으로 산출한 변경표로 `python migrate_order.py /path/to/20261123_order_changes.csv`를 실행해 변경 건수를 확인한 뒤 같은 명령에 `--apply`를 붙입니다. 기존 페이지의 Order만 갱신합니다. 중단되면 동일한 변경표로 재실행할 수 있습니다. 새로 번호를 받은 항목이나 충돌이 발견되면 최신 내보내기로 변경표를 다시 준비합니다.
-3. 검증이 끝나면 변수를 `true`로 설정하고 빌드를 실행합니다. 이때부터 배포용 노션 연결에도 페이지 수정 권한이 필요합니다. 빌드는 빈 번호를 생성 시각 순서로 채우고(동시 생성은 페이지 ID순), 저장된 양의 정수를 기준으로 정렬합니다. ZIP 작업에서 추가할 때는 처음부터 번호를 기록할 수 있습니다.
+| 테이블 | 전환할 때 번호를 매기는 방법 | 홈페이지 표시 순서 |
+|---|---|---|
+| Publications | 기존 Order가 가장 큰 논문부터 1, 2, 3, … | 전체 논문의 새 Order 내림차순 |
+| News | 기존 공개 목록의 첫 소식에 가장 큰 정수를 주고 아래로 갈수록 1씩 감소. 숨김 행에는 공개 목록보다 작은 번호 배정 | 새 Order 내림차순 |
+| Photos, MLV TV, Home Highlights | 기존 Order가 가장 큰 행부터 1, 2, 3, … 부여하고 기존 빈 값은 마지막에 배정 | 새 Order 내림차순. MLV TV의 채널 자동 수집 영상은 수동 등록 영상 앞에 표시 |
 
+다섯 DB의 설명에는 `홈페이지 정렬 = Order DESC`가 한 줄로 들어 있습니다. 이 문구는 빌드가 해당 테이블의 정수 순번을 인식하는 설정입니다. 개인 복제본의 기본 보기에서 Order 오름차순으로 확인한 뒤 운영 페이지의 같은 이름 테이블을 복제본 테이블로 교체합니다. 다음 빌드부터 교체한 테이블별로 적용되며 별도의 GitHub 변수 변경은 필요하지 않습니다.
+
+전체 DB를 한꺼번에 이전하는 경우 GitHub Actions 변수 `NOTION_INTEGER_ORDER=migrating`으로 빌드를 일시 중지할 수 있습니다. 기본값과 `false`는 위 다섯 테이블의 설명을 확인합니다. `true`는 People, Research Topics, Research Figures까지 모두 정수 전환을 완료했을 때 사용하는 전체 적용 옵션입니다. 원본에서 기존 행의 번호만 변경할 때는 운영 페이지 ID에 맞는 변경표를 준비하고 `python migrate_order.py /path/to/order_changes.csv`로 확인한 뒤 같은 명령에 `--apply`를 붙입니다.
 
 People은 김현우 교수님이 1번이고, 이번 재배정에서는 2번부터 졸업생, 이어서 기존 순서대로 현 구성원에게 정수를 부여합니다. 현 구성원은 그룹 안에서 `Order` 오름차순입니다. 박사·석사 졸업생 표는 각각 `Graduated`의 연월 내림차순, 같은 연월은 `Order` 오름차순이며, 졸업 연월이 비어 있으면 마지막에 표시합니다.
 
@@ -159,7 +164,7 @@ People의 현재 멤버는 `Status = Current`를 사용합니다. `Group`은 기
 
 `home_intro`, `contact_address_en`, `contact_address_ko`, `openings_en`, `openings_ko`는 **행의 페이지 본문이 있으면 본문을 우선**합니다. 그 밖의 행도 Value가 `(`로 시작하면 본문을 읽습니다. 본문을 사용하는 행에서 Value만 바꾸고 결과가 그대로라면 페이지 안쪽 내용을 확인하세요.
 
-- 뉴스의 `New` 체크박스는 사용하지 않습니다. 날짜순 최신 `home_new_count`개에 자동으로 배지가 붙습니다. 개수에는 0 이상의 정수를 입력해 주세요.
+- 뉴스의 `New` 체크박스는 사용하지 않습니다. 목록 맨 위의 `home_new_count`개에 자동으로 배지가 붙습니다. 개수에는 0 이상의 정수를 입력해 주세요.
 - 본문은 문단, 굵게, 링크, 기본 목록 위주로 작성합니다. 중첩 블록, 표, 토글, 본문 이미지, 콜아웃은 홈페이지로 자동 복제되지 않으며 제목·인용문의 Notion 디자인도 그대로 보존되지 않습니다.
 - Site Content의 이미지 Key는 **Value에 이미지 URL을 넣는 방식**입니다. 별도의 파일 첨부 열을 자동으로 읽지는 않습니다. 이 이미지의 원본도 영구 보관하고 snapshot을 갱신해 주세요.
 - MLV TV는 채널 RSS의 최근 최대 15개 영상 중 DB에 없는 영상을 목록 위에 자동 추가합니다. 특정 자동 영상을 숨기려면 해당 URL/ID를 DB에 추가하고 `Show on Site`를 끕니다.

@@ -313,6 +313,18 @@ test('a superseded deep-link callback cannot scroll away from the newest route',
   assert.equal(current[0].block, 'start');
 });
 
+test('publication filters preserve the supplied order across years', () => {
+  const app = routeSetup();
+  vm.runInContext(`D.pubs = [2023, 2026, 2023].map((year, i) => ({
+    ...D.pubs[0], id: i + 1, year
+  }))`, app.context);
+  app.navigate('#/publications');
+  const paperIds = () => [...app.nodes.plist.innerHTML.matchAll(/id="pub(\d+)"/g)].map(m => m[1]);
+  assert.deepEqual(paperIds(), ['1', '2', '3']);
+  vm.runInContext("PF.year='2023'; renderPubs()", app.context);
+  assert.deepEqual(paperIds(), ['1', '3']);
+});
+
 test('deep-linked papers clear the header and toolbar without competing entry motion', () => {
   const app = routeSetup();
   app.navigate('#/home');

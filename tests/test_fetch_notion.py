@@ -122,9 +122,10 @@ class ImageFallbackTests(unittest.TestCase):
                 props[key] = {'type': 'rich_text', 'rich_text': [{'plain_text': value}]}
         return {'id': identity, 'created_time': '2026-10-13T00:00:00Z', 'properties': props}
 
-    def run_main(self, module, tables, argv=None, download=None):
+    def run_main(self, module, tables, argv=None, download=None, migrated=()):
         sources = {module.CFG['data_sources'][name]: rows for name, rows in tables.items()}
         with patch.object(module, 'TOKEN', 'test-token'), \
+                patch.object(module, 'has_order_marker', side_effect=lambda source: source in migrated), \
                 patch.object(module, 'query_all', side_effect=lambda source: sources.get(source, [])), \
                 patch.object(module, 'fetch_bytes', side_effect=download or OSError('offline')), \
                 patch('sys.argv', ['fetch_notion.py'] + (argv or [])), \
@@ -150,17 +151,17 @@ class ImageFallbackTests(unittest.TestCase):
             module.ordered_rows(rows, 'people', True)
             self.assertEqual(api.call_count, 1)
 
-    def test_integer_order_keeps_publication_year_and_legacy_direction(self):
+    def test_migrated_publications_use_global_order_across_years(self):
         module = self.load()
         rows = [self.row('a', Order=3, Year=2025), self.row('b', Order=1, Year=2026),
                 self.row('c', Order=2, Year=2026)]
         with patch.object(module, 'api') as api:
-            for mode, expected in [(True, ['c', 'b', 'a']), (False, ['b', 'c', 'a'])]:
+            for mode, expected in [(True, ['a', 'c', 'b']), (False, ['b', 'c', 'a'])]:
                 display = module.ordered_rows(rows, 'publications', mode)
                 self.assertEqual([r['id'] for r in display], expected)
             api.assert_not_called()
 
-    def test_reversed_numbers_keep_display_order_for_all_numbered_tables(self):
+    def test_reversed_numbers_keep_display_order_for_ascending_lists(self):
         module = self.load()
         old = [self.row('first', Order=0, Year=2026), self.row('second', Order=8, Year=2025),
                self.row('third', Order=0, Year=2026)]
@@ -168,11 +169,34 @@ class ImageFallbackTests(unittest.TestCase):
         old[2]['properties']['Order']['number'] = 3.5
         new = [self.row('first', Order=3, Year=2026), self.row('second', Order=1, Year=2025),
                self.row('third', Order=2, Year=2026)]
-        for table in ('publications', 'topics', 'news', 'photos', 'videos', 'highlights', 'figures'):
+        for table in ('topics', 'photos', 'videos', 'highlights', 'figures'):
             with self.subTest(table=table):
                 before = module.ordered_rows(old, table, False)
                 after = module.ordered_rows(new, table, True)
                 self.assertEqual([r['id'] for r in before], [r['id'] for r in after])
+
+    def test_migrated_news_uses_order_and_unmigrated_publications_keep_year_order(self):
+        module = self.load()
+        tables = {
+            'news': [self.row('older', Date='2025-01-01', Order=2),
+                     self.row('newer', Date='2026-01-01', Order=1)],
+            'publications': [self.row('p', Title='Earlier', Year=2024, Order=1),
+                             self.row('q', Title='Later', Year=2025, Order=2)],
+        }
+        for migrated, first_date in [((), '2026-01-01'), ([module.CFG['data_sources']['news']], '2025-01-01')]:
+            data, _ = self.run_main(module, tables, migrated=migrated)
+            self.assertEqual(data['news'][0]['date'], first_date)
+            self.assertEqual([p['year'] for p in data['pubs']], [2025, 2024])
+
+    def test_order_marker_follows_the_resolved_copy(self):
+        module = self.load()
+        description = [{'plain_text': '설명\n홈페이지 정렬 = '}, {'plain_text': 'Order DESC'}]
+        with patch.object(module, 'resolved_id', return_value='new-copy'), \
+                patch.object(module, 'api', return_value={'description': description}) as api:
+            self.assertTrue(module.has_order_marker('configured-source'))
+            api.assert_called_once_with('GET', '/data_sources/new-copy')
+            description.clear()
+            self.assertFalse(module.has_order_marker('configured-source'))
 
     def test_news_display_text_preserves_native_formatting_and_all_extra_links(self):
         module = self.load()

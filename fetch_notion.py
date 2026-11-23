@@ -255,17 +255,26 @@ def assign_integer_orders(rows):
         row['properties']['Order']['number'] = maximum
 
 
+ORDER_DESC_TABLES = ('publications', 'news', 'photos', 'videos', 'highlights')
+ORDER_DESC_MARKER = '홈페이지 정렬 = Order DESC'
+
+
+def has_order_marker(source_id):
+    source = api('GET', '/data_sources/' + resolved_id(source_id))
+    description = ''.join(part['plain_text'] for part in source.get('description', []))
+    return ORDER_DESC_MARKER in description
+
+
 def ordered_rows(rows, table, integer_order):
     if integer_order:
         assign_integer_orders(rows)
-        # People always uses ascending Order. News uses it within each date.
-        ordered = sort_rows(visible(rows), desc=(table not in ('people', 'news')))
-        if table == 'publications':
-            ordered.sort(key=lambda r: prop(r['properties'], 'Year', default=0) or 0, reverse=True)
-        return ordered
+        return sort_rows(visible(rows), desc=table != 'people')
     if table == 'publications':
         return sort_pubs(visible(rows))
-    return sort_rows(visible(rows), desc=(table == 'news'))
+    if table == 'news':
+        ordered = sort_rows(visible(rows), desc=True)
+        return sorted(ordered, key=lambda r: prop(r['properties'], 'Date'), reverse=True)
+    return sort_rows(visible(rows))
 
 
 def visible(rows):
@@ -427,8 +436,16 @@ def main():
         sys.exit('Order migration in progress; keeping the last published site.')
     if mode not in ('', 'false', 'true'):
         sys.exit('NOTION_INTEGER_ORDER must be false, migrating or true.')
-    integer_order = mode == 'true'
     ds = CFG['data_sources']; no_img = args.no_images
+    integer_tables = set(DB_TITLES) if mode == 'true' else {
+        key for key in ORDER_DESC_TABLES if has_order_marker(ds[key])
+    }
+
+    def display_rows(table, rows=None):
+        if rows is None:
+            rows = query_all(ds[table])
+        return ordered_rows(rows, table, table in integer_tables)
+
     A = {}   # asset key → relative path (the template's image map)
     SNAP_MATCHES.clear(); SNAP_USED.clear()
     for values in IMAGE_METADATA.values():
@@ -436,7 +453,7 @@ def main():
 
     # ---- People
     people, id_to_person = [], {}
-    rows = ordered_rows(query_all(ds['people']), 'people', integer_order)
+    rows = display_rows('people')
     for i, r in enumerate(rows, 1):
         p = r['properties']; name = prop(p, 'Name')
         key = f'person:{i}'
@@ -466,9 +483,9 @@ def main():
         people.append(person); id_to_person[r['id']] = i
 
     # ---- Research figures (needed for publication thumbnails)
-    fig_rows = ordered_rows(query_all(ds['figures']), 'figures', integer_order)
+    fig_rows = display_rows('figures')
     fig_by_id, fig_url_to_key = {}, {}
-    topic_rows = ordered_rows(query_all(ds['topics']), 'topics', integer_order)
+    topic_rows = display_rows('topics')
     topic_index = {r['id']: n for n, r in enumerate(topic_rows, 1)}
     per_topic_count = {}
     for r in fig_rows:
@@ -483,7 +500,7 @@ def main():
 
     # ---- Publications
     pubs, pub_index = [], {}
-    rows = ordered_rows(query_all(ds['publications']), 'publications', integer_order)
+    rows = display_rows('publications')
     for i, r in enumerate(rows, 1):
         p = r['properties']; pub_index[r['id']] = i
         links = {}
@@ -543,10 +560,9 @@ def main():
 
     # ---- News
     news = []
-    for r in ordered_rows(query_all(ds['news']), 'news', integer_order):
+    for r in display_rows('news'):
         p = r['properties']
         news.append({'date': prop(p, 'Date'), **news_content(p), 'new': bool(prop(p, 'New', default=False))})
-    news.sort(key=lambda n: n['date'], reverse=True)
 
     # ---- Teaching
     teaching = []
@@ -558,7 +574,7 @@ def main():
 
     # ---- Photos
     photos = []
-    for i, r in enumerate(ordered_rows(query_all(ds['photos']), 'photos', integer_order), 0):
+    for i, r in enumerate(display_rows('photos'), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'photo:{i}'
         path = save_image(key, 'photo', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; photos.append({'img': key, 'caption': cap})
@@ -574,13 +590,13 @@ def main():
     all_video_rows = query_all(ds['videos'])
     shown_rows = visible(all_video_rows)
     hidden_video_ids = {video_id(r['properties']) for r in all_video_rows if r not in shown_rows}   # rows with "Show on Site" unchecked also block the auto-sync
-    for r in ordered_rows(all_video_rows, 'videos', integer_order):
+    for r in display_rows('videos', all_video_rows):
         p = r['properties']; vid = video_id(p)
         videos.append({'id': vid, 'title': prop(p, 'Title'), 'url': prop(p, 'YouTube URL') or f'https://www.youtube.com/watch?v={vid}', 'thumb': yt_thumb(vid, source_id=r['id'])})
 
     # ---- Highlights
     highlights = []
-    for i, r in enumerate(ordered_rows(query_all(ds['highlights']), 'highlights', integer_order), 0):
+    for i, r in enumerate(display_rows('highlights'), 0):
         p = r['properties']; cap = prop(p, 'Caption'); key = f'slide:{i}'
         path = save_image(key, 'slide', prop(p, 'Image File', default=[]) + [prop(p, 'Image URL', 'Image')], label=cap, no_images=no_img, source_id=r['id'])
         if path: A[key] = path; highlights.append({'img': key, 'caption': cap, 'link': prop(p, 'Link')})

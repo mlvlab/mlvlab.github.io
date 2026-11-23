@@ -306,9 +306,6 @@ table.list td a{color:var(--navy);font-weight:700}
 .seg button:hover:not(.on){background:var(--band)}
 .filter-note{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:6px;background:var(--navy-soft);color:var(--navy);font-size:14px;margin:12px 0 4px}
 .filter-note button{font-weight:700;text-decoration:underline;text-underline-offset:3px}
-.year-head{display:flex;align-items:baseline;gap:12px;margin:36px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--navy)}
-.year-head h3{font-size:28px;font-weight:700}
-.year-head .count{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .pub{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;padding:24px 0;position:relative}
 .pub .pub-visual{min-width:0;align-self:start;position:relative;margin-bottom:4px}
 .pub .pub-meta{position:absolute;top:0;left:0;z-index:1;display:flex;align-items:center;gap:4px;max-width:100%;pointer-events:none}
@@ -1053,8 +1050,7 @@ function renderPubs(){
   if(PF.topic){ const t=topicById.get(PF.topic); notes.push(`Topic: <b>${esc(t.name)}</b>`); }
   note.innerHTML = notes.length ? `<div class="filter-note">${notes.join(' · ')}<button id="pclear">Show all</button></div>` : '';
   document.querySelectorAll('#ptopic .chip').forEach(b=>b.classList.toggle('on', (b.dataset.v||'')===(PF.topic?String(PF.topic):'')));
-  const years = [...new Set(list.map(p=>p.year))].sort((a,b)=>b-a);
-  const html = years.map(y=>{ const ps=list.filter(p=>p.year===y); return `<div class="year-head"><h3>${y}</h3><span class="count">${ps.length}</span></div>${ps.map(p=>pubRow(p,PF.author)).join('')}`; }).join('');
+  const html = list.map(p=>pubRow(p,PF.author)).join('');
   document.getElementById('plist').innerHTML = html || `<div class="empty">No papers match. Try a shorter search or clear the filters.</div>`;
   const pc = document.getElementById('pclear'); if(pc) pc.onclick=()=>{ PF.author=null; PF.topic=null; history.replaceState(null,'','#/publications'); renderPubs(); };
   reveal();
