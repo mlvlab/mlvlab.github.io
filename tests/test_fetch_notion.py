@@ -160,6 +160,20 @@ class ImageFallbackTests(unittest.TestCase):
                 self.assertEqual([r['id'] for r in display], expected)
             api.assert_not_called()
 
+    def test_reversed_numbers_keep_display_order_for_all_numbered_tables(self):
+        module = self.load()
+        old = [self.row('first', Order=0, Year=2026), self.row('second', Order=8, Year=2025),
+               self.row('third', Order=0, Year=2026)]
+        old[0]['properties']['Order']['number'] = 0.3
+        old[2]['properties']['Order']['number'] = 3.5
+        new = [self.row('first', Order=3, Year=2026), self.row('second', Order=1, Year=2025),
+               self.row('third', Order=2, Year=2026)]
+        for table in ('people', 'publications', 'topics', 'news', 'photos', 'videos', 'highlights', 'figures'):
+            with self.subTest(table=table):
+                before = module.ordered_rows(old, table, False)
+                after = module.ordered_rows(new, table, True)
+                self.assertEqual([r['id'] for r in before], [r['id'] for r in after])
+
     def test_news_display_text_preserves_native_formatting_and_all_extra_links(self):
         module = self.load()
         row = self.row('news-row', **{'News title': 'Original title', 'Date': '2026-10-29',

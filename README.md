@@ -112,7 +112,7 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 | DB | 주요 열과 운영 방법 |
 |---|---|
 | People | `Name`, `Korean Name`, `Group`, `Status`, `Position`, `Email`, `Tel`, `Google Scholar`, `Homepage`, `CV`, `Research Interests`, `Photo File`. 졸업생은 `Graduated`, `After Graduation`도 사용 |
-| News | `News title`, `Date`, 서식이 필요한 소식은 선택적으로 `Display text`, 추가 링크는 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 날짜가 최신인 소식부터 표시하고 같은 날짜는 Order가 큰 순서 |
+| News | `News title`, `Date`, 서식이 필요한 소식은 선택적으로 `Display text`, 추가 링크는 `Link 1`–`Link 3`, `Link Label 1`–`Link Label 3`. 날짜가 최신인 소식부터 표시하고 같은 날짜는 기존 번호에서 큰 순서, 역순으로 정수화한 뒤에는 작은 순서 |
 | Topics | `Topic`, `Description`, `Related Publications` |
 | Figures | `Caption`, `Image File`, `Topic`, 선택적으로 `Publication`. Topic·Publication 관계는 각각 첫 번째 항목만 사용 |
 | Teaching | `Semester`, `Year`, `Term`, `Course`, `Code`, `Note`, `Institution`. 연도 내림차순, 같은 해는 Fall 먼저, 다음 Course 이름순 |
@@ -123,10 +123,10 @@ Publications의 **`Collaboration`**과 **News 문장**에 아래 기관 이름�
 
 ### 정수 순번으로 전환하기
 
-People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. 번호가 클수록 먼저 표시하며 논문은 연도, 뉴스는 날짜를 먼저 비교합니다. 노션 표에서도 같은 순서를 보려면 해당 뷰에서 논문은 Year 내림차순, 뉴스는 Date 내림차순을 먼저 두고 Order를 내림차순으로 설정합니다. Teaching과 Site Content에는 Order가 없습니다.
+People, Publications, Research Topics, Research Figures, News, Photos, MLV TV, Home Highlights는 DB마다 독립적으로 번호를 매깁니다. 새 행은 숨김 행까지 포함한 최댓값 + 1, 빈 DB는 1부터 시작합니다. 전환할 때 각 DB에서 기존 Order가 가장 큰 행을 1번으로 삼고, 다음으로 큰 행부터 2, 3, …을 부여합니다. 기존 번호가 비어 있던 행은 마지막에 둡니다. 복제본 표는 새 Order 오름차순으로 확인합니다. 홈페이지는 기존 배포 순서를 보존하도록 People·Topics·Figures·Photos·Highlights·수동 등록 영상은 새 번호 내림차순, 논문은 최신 연도 안에서 새 번호 내림차순, 뉴스는 최신 날짜 안에서 새 번호 오름차순으로 표시합니다. Teaching과 Site Content에는 Order가 없습니다.
 
 1. GitHub Actions 저장소 변수 `NOTION_INTEGER_ORDER`의 기본값은 이전 정렬입니다. 운영 DB를 전환할 때 이 값을 `migrating`으로 설정하고 진행 중인 빌드가 끝난 뒤 기존 Order 편집을 잠시 멈춥니다. 전환 중 새 빌드는 배포 전에 중단됩니다.
-2. 쓰기 권한이 있는 운영 노션 연결의 `NOTION_TOKEN`을 로컬 환경에 설정합니다. 제공된 변경표로 `python migrate_order.py /path/to/20261123_order_changes.csv`를 실행해 변경 건수를 확인한 뒤 같은 명령에 `--apply`를 붙입니다. 기존 페이지의 Order만 갱신합니다. 중단되면 동일한 변경표로 재실행할 수 있습니다. 새로 번호를 받은 항목이나 충돌이 발견되면 최신 내보내기로 변경표를 다시 준비합니다.
+2. 개인 워크스페이스의 복제본에서 순번을 검증했다면 사용자가 수정한 테이블들을 운영 페이지의 해당 테이블과 교체합니다. 원래 테이블에서 직접 변환하는 방법도 있습니다. 이 경우 쓰기 권한이 있는 운영 노션 연결의 `NOTION_TOKEN`을 로컬 환경에 설정합니다. 해당 운영 페이지 ID에 맞춰 기존 Order 내림차순으로 산출한 변경표로 `python migrate_order.py /path/to/20261123_order_changes.csv`를 실행해 변경 건수를 확인한 뒤 같은 명령에 `--apply`를 붙입니다. 기존 페이지의 Order만 갱신합니다. 중단되면 동일한 변경표로 재실행할 수 있습니다. 새로 번호를 받은 항목이나 충돌이 발견되면 최신 내보내기로 변경표를 다시 준비합니다.
 3. 검증이 끝나면 변수를 `true`로 설정하고 빌드를 실행합니다. 이때부터 배포용 노션 연결에도 페이지 수정 권한이 필요합니다. 빌드는 빈 번호를 생성 시각 순서로 채우고(동시 생성은 페이지 ID순), 저장된 양의 정수를 기준으로 정렬합니다. ZIP 작업에서 추가할 때는 처음부터 번호를 기록할 수 있습니다.
 
 
